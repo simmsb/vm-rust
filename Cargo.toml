@@ -1,0 +1,8 @@
+[package]
+name = "VM-rust"
+version = "0.1.0"
+authors = ["Ben Simms <ben@bensimms.moe>"]
+
+[dependencies]
+bitflags = "1.0"
+num = "0.1"
