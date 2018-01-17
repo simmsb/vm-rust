@@ -1,11 +1,9 @@
-extern crate num;
-
-use std::mem;
-use std::ops::Shl;
-use num::PrimInt;
-
 #[macro_use]
 extern crate bitflags;
+
+extern crate byteorder;
+
+use byteorder::{ByteOrder, NativeEndian};
 
 type Reg = u64;
 
@@ -24,6 +22,14 @@ enum MemSize {
     U8,
 }
 
+#[derive(PartialEq, Debug, Copy, Clone)]
+enum MemReg {
+    U1(u8),
+    U2(u16),
+    U4(u32),
+    U8(u64),
+}
+
 impl MemSize {
     fn len(self) -> usize {
         match self {
@@ -34,6 +40,27 @@ impl MemSize {
         }
     }
 }
+
+impl MemReg {
+    fn len(self) -> usize {
+        match self {
+            MemReg::U1(_) => 1,
+            MemReg::U2(_) => 2,
+            MemReg::U4(_) => 4,
+            MemReg::U8(_) => 8,
+        }
+    }
+
+    fn size(self) -> MemSize {
+        match self {
+            MemReg::U1(_) => MemSize::U1,
+            MemReg::U2(_) => MemSize::U2,
+            MemReg::U4(_) => MemSize::U4,
+            MemReg::U8(_) => MemSize::U8,
+        }
+    }
+}
+
 
 bitflags! {
     #[derive(Default)]
@@ -55,35 +82,33 @@ impl Cpu {
     }
 }
 
-fn unpack_size<N: Shl<R> + PrimInt, R: PrimInt>(mem: &[N]) -> R {
-    mem.iter().enumerate().fold(R::zero(), | sum, (index , &val) | {
-        let shift = index * mem::size_of::<N>() * 8;
-        let base: R = num::cast(val).unwrap();
-        sum | (base << shift)
-    })
-}
 
 impl Cpu {
-    fn read_memory(& self, size: MemSize, index: usize) -> Reg {
+    fn read_memory(&self, size: MemSize, index: usize) -> MemReg {
         let range = index .. (index + size.len());
-        unpack_size(&self.mem[range])
+        match size {
+            MemSize::U1 => MemReg::U1(self.mem[index]),
+            MemSize::U2 => MemReg::U2(NativeEndian::read_u16(&self.mem[range])),
+            MemSize::U4 => MemReg::U4(NativeEndian::read_u32(&self.mem[range])),
+            MemSize::U8 => MemReg::U8(NativeEndian::read_u64(&self.mem[range])),
+        }
     }
 
-    fn write_memory(&mut self, size: MemSize, index: usize, value: u64) {
-        self.mem[index .. (index + size.len())]
-            .iter_mut().enumerate()
-            .for_each(| (index, val) | {
-                let shift = index * 8;
-                let dat = ((value >> shift) & 0xff) as u8;
-                *val = dat;
-            });
+    fn write_memory(&mut self, mem: MemReg, index: usize) {
+        let range = index .. (index + mem.len());
+        match mem {
+            MemReg::U1(x) => self.mem[index] = x,
+            MemReg::U2(x) => NativeEndian::write_u16(&mut self.mem[range], x),
+            MemReg::U4(x) => NativeEndian::write_u32(&mut self.mem[range], x),
+            MemReg::U8(x) => NativeEndian::write_u64(&mut self.mem[range], x),
+        }
     }
 }
 
 fn main() {
     let mut cpu = Cpu::new(1 << 16, 8);
 
-    cpu.write_memory(MemSize::U4, 0, 0xffffffff);
+    // cpu.write_memory(MemSize::U4, 0, 0xffffffff);
 
     // println!("memory is {}", cpu.read_memory(MemSize::U4, 0));
 
@@ -102,19 +127,19 @@ mod tests {
         let mut cpu = Cpu::new(1024, 0);
 
         let tests = [
-            (MemSize::U1,  u8::max_value() as u64),
-            (MemSize::U2, u16::max_value() as u64),
-            (MemSize::U4, u32::max_value() as u64),
-            (MemSize::U8, u64::max_value() as u64),
-            (MemSize::U1, 0),
-            (MemSize::U2, 0),
-            (MemSize::U4, 0),
-            (MemSize::U8, 0),
+            MemReg::U1( u8::max_value()),
+            MemReg::U2(u16::max_value()),
+            MemReg::U4(u32::max_value()),
+            MemReg::U8(u64::max_value()),
+            MemReg::U1(0),
+            MemReg::U2(0),
+            MemReg::U4(0),
+            MemReg::U8(0),
         ];
 
-        for &(size, num) in tests.iter() {
-            cpu.write_memory(size, 0, num);
-            assert_eq!(cpu.read_memory(size, 0), num);
+        for &r in tests.iter() {
+            cpu.write_memory(r, 0);
+            assert_eq!(cpu.read_memory(r.size(), 0), r);
         }
     }
 
@@ -122,20 +147,24 @@ mod tests {
     fn test_memory_signed() {
         let mut cpu = Cpu::new(1024, 0);
 
-        let tests = [
-            (MemSize::U1,  i8::max_value() as i64),
-            (MemSize::U2, i16::max_value() as i64),
-            (MemSize::U4, i32::max_value() as i64),
-            (MemSize::U8, i64::max_value() as i64),
-            (MemSize::U1, 0),
-            (MemSize::U2, 0),
-            (MemSize::U4, 0),
-            (MemSize::U8, 0),
+         let tests = [
+            MemReg::U1( i8::max_value() as u8),
+            MemReg::U2(i16::max_value() as u16),
+            MemReg::U4(i32::max_value() as u32),
+            MemReg::U8(i64::max_value() as u64),
+            MemReg::U1(0),
+            MemReg::U2(0),
+            MemReg::U4(0),
+            MemReg::U8(0),
+            MemReg::U1( i8::min_value() as u8),
+            MemReg::U2(i16::min_value() as u16),
+            MemReg::U4(i32::min_value() as u32),
+            MemReg::U8(i64::min_value() as u64),
         ];
 
-        for &(size, num) in tests.iter() {
-            cpu.write_memory(size, 0, num as u64);
-            assert_eq!(cpu.read_memory(size, 0) as i64, num);
+        for &r in tests.iter() {
+            cpu.write_memory(r, 0);
+            assert_eq!(cpu.read_memory(r.size(), 0), r);
         }
     }
 }

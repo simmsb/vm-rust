@@ -5,4 +5,4 @@ authors = ["Ben Simms <ben@bensimms.moe>"]
 
 [dependencies]
 bitflags = "1.0"
-num = "0.1"
+byteorder = "1"
