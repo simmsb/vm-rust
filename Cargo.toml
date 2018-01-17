@@ -1,5 +1,5 @@
 [package]
-name = "VM-rust"
+name = "vm-rust"
 version = "0.1.0"
 authors = ["Ben Simms <ben@bensimms.moe>"]
 
