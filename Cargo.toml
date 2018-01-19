@@ -7,3 +7,4 @@ authors = ["Ben Simms <ben@bensimms.moe>"]
 bitflags = "1.0"
 byteorder = "1"
 num = "0.1"
+num-derive = "0.1"

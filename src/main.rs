@@ -1,14 +1,17 @@
 #[macro_use]
 extern crate bitflags;
-
+#[macro_use]
+extern crate num_derive;
 extern crate byteorder;
 extern crate num;
 
 mod cpu;
 mod memory;
+mod instruction;
 
 use cpu::{Cpu, CpuIndex, CpuIndexable};
 use memory::{MemReg};
+use instruction::InstrType;
 
 fn main() {
     let mut cpu = Cpu::new(1 << 16, 8);

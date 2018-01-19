@@ -60,9 +60,9 @@ impl Cpu {
 }
 
 pub struct RegBlock {
-    stk: Reg,
-    bas: Reg,
-    cur: Reg,
+    pub stk: Reg,
+    pub bas: Reg,
+    pub cur: Reg,
     regs: Vec<Reg>,
 }
 

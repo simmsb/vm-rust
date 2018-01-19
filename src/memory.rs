@@ -3,7 +3,7 @@ use num::FromPrimitive;
 
 use cpu::{Cpu, CpuIndex, Reg, CpuIndexable};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, FromPrimitive)]
 pub enum MemSize {
     U1,
     U2,
