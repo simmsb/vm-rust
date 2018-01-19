@@ -2,11 +2,11 @@
 extern crate bitflags;
 
 extern crate byteorder;
+extern crate num;
 
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 use byteorder::{ByteOrder, NativeEndian};
-use std::convert::From;
-// use num::Integer
+use num::FromPrimitive;
 
 type Reg = u64;
 
@@ -86,6 +86,17 @@ impl Index<usize> for RegBlock {
     }
 }
 
+impl IndexMut<usize> for RegBlock {
+    fn index_mut(&mut self, index: usize) -> &mut Reg {
+        match index {
+            0 => &mut self.stk,
+            1 => &mut self.bas,
+            2 => &mut self.cur,
+            x => &mut self.regs[x],
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 enum MemSize {
     U1,
@@ -141,12 +152,12 @@ impl MemReg {
         }
     }
 
-    fn unpack<N: From<u8> + From<u16> + From<u32> + From<u64>>(self) -> N {
+    fn unpack<N: FromPrimitive>(self) -> N {
         match self {
-            MemReg::U1(x) => N::from(x),
-            MemReg::U2(x) => N::from(x),
-            MemReg::U4(x) => N::from(x),
-            MemReg::U8(x) => N::from(x),
+            MemReg::U1(x) => N::from_u8(x).unwrap(),
+            MemReg::U2(x) => N::from_u16(x).unwrap(),
+            MemReg::U4(x) => N::from_u32(x).unwrap(),
+            MemReg::U8(x) => N::from_u64(x).unwrap(),
         }
     }
 }
@@ -193,14 +204,15 @@ impl Cpu {
 
     fn write(&mut self, dat: MemReg, to: CpuIndex) {
         if to.deref() {
-            let to = self.read();
-
+            let to = self.read(dat.size(), to.strip_deref()).unpack();
             self.write_memory(dat, to);
         } else {
             if to.register() {
-                self.regs[to.index()]
+                let val: Reg = dat.unpack();
+                self.regs[to.index()] = val;
+            } else {
+                self.write_memory(dat, to.index());
             }
-            self.write_memory(dat, to.index());
         }
     }
 
@@ -210,8 +222,6 @@ impl Cpu {
         } else {
             index.index() as u64
         };
-
-        println!("index: {}", val);
 
         if index.deref() {
             self.read_memory(size, val as usize)
@@ -308,15 +318,22 @@ mod tests {
 
         let val = MemReg::U8(100);
         let tests = [
-            CpuIndex::make_index(0, false, false),
-            CpuIndex::make_index(0, false,  true),
-            CpuIndex::make_index(0,  true, false),
-            CpuIndex::make_index(0,  true,  true),
+            ((false, false), (false, true)),  // write to 0, read from *0
+            ((true,  false), (true, false)),  // write to reg 0, read from reg 0
+            ((true,   true), (true,  true)),  // write to mem at reg 0, read from mem at reg 0
         ];
 
-        for &t in tests.iter() {
-            cpu.write(val, t.index() as u16);
-            assert_eq!(cpu.read(val.size(), t), val);
+        for &((r_w, d_w), (r_r, d_r)) in tests.iter() {
+            let writer = CpuIndex::make_index(0, r_w, d_w);
+            assert_eq!(writer.register(), r_w);
+            assert_eq!(writer.deref(), d_w);
+
+            let reader = CpuIndex::make_index(0, r_r, d_r);
+            assert_eq!(reader.register(), r_r);
+            assert_eq!(reader.deref(), d_r);
+
+            cpu.write(val, writer);
+            assert_eq!(cpu.read(val.size(), reader), val);
         }
     }
 }
