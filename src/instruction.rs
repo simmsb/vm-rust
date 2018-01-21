@@ -1,6 +1,7 @@
-use num::FromPrimitive;
+use num::{FromPrimitive};
+use std::num::Wrapping;
 
-use cpu::{Cpu, Reg};
+use cpu::{Cpu, Reg, CpuFlags};
 use memory::{MemReg, MemSize};
 
 //  size  type     id
@@ -21,7 +22,7 @@ trait InstrDecode {
 impl InstrDecode for InstrNum {
     fn size(&self) -> u8 { (self >> 14) as u8 }
     fn ityp(&self) -> u8 { (self >> 8)  as u8 }
-    fn id  (&self) -> u8 { *self         as u8 }
+    fn id  (&self) -> u8 { *self        as u8 }
 }
 
 mod instr_intern_types {
@@ -136,11 +137,17 @@ pub struct Instruction {
     size: MemSize,
 }
 
+
 impl Cpu {
     fn get_next(&mut self, size: MemSize) -> MemReg {
         let val = self.read_memory(size, self.regs.cur as usize);
         self.regs.cur += size.len() as Reg;
         val
+    }
+
+    fn read_next(&mut self, size: MemSize) -> MemReg {
+        let val = self.get_next(MemSize::U2).unpack();
+        self.read(size, val)
     }
 
     pub fn get_instr(&mut self) -> Instruction {
@@ -159,12 +166,11 @@ impl Cpu {
             Binary(x) => {
                 use self::Bin::*;
 
-                let (left, right) = (self.get_next(MemSize::U2).unpack(),
-                                     self.get_next(MemSize::U2).unpack());
+                let (left, right) = (self.read_next(instr.size),
+                                     self.read_next(instr.size));
                 let to = self.get_next(MemSize::U2).unpack();
 
-                let (lhs, rhs) : (u64, u64) = (self.read(instr.size, left).unpack(),
-                                               self.read(instr.size, right).unpack());
+                let (lhs, rhs): (Wrapping<u64>, Wrapping<u64>) = (left.unpack(), right.unpack());
 
                 // TODO: might have to do instr.size.operator(lhs, rhs, | x, y | { x + y })
                 // if this doesn't work
@@ -173,28 +179,32 @@ impl Cpu {
                     Sub  => lhs - rhs,
                     Mul  => lhs * rhs,
                     UDiv => lhs / rhs,
-                    IDiv => ((lhs as i64) / (rhs as i64)) as u64,
-                    Shl  => lhs << rhs,
-                    Shr  => lhs >> rhs,
-                    Sar  => ((lhs as i64) >> rhs) as u64,
+                    IDiv => {
+                        let (lhs, rhs): (Wrapping<i64>, Wrapping<i64>) = (left.unpack_signed(), right.unpack_signed());
+                        Wrapping((lhs / rhs).0 as u64)
+                    },
+                    Shl  => lhs << rhs.0 as usize,
+                    Shr  => lhs >> rhs.0 as usize,
+                    Sar  => {
+                        let lhs: i64 = left.unpack_signed();
+                        Wrapping((lhs >> rhs.0) as u64)
+                    },
                     And  => lhs & rhs,
                     Or   => lhs | rhs,
                     Xor  => lhs ^ rhs,
                 };
-                self.write(instr.size.pack(result), to);
+                self.write(instr.size.pack(result.0), to);
             },
             Unary(x) => {
                 use self::Un::*;
 
-                let op = self.get_next(MemSize::U2).unpack();
+                let op = self.read_next(instr.size).unpack();
                 let to = self.get_next(MemSize::U2).unpack();
 
-                let val: u64 = self.read(instr.size, op).unpack();
-
                 let result = match x {
-                    Neg => -(val as i64) as u64,
-                    Pos => (val as i64).abs() as u64,
-                    Not => !val,
+                    Neg => -(op as i64) as u64,
+                    Pos => (op as i64).abs() as u64,
+                    Not => !(op as u64),
                 };
                 self.write(instr.size.pack(result), to);
             },
@@ -203,11 +213,64 @@ impl Cpu {
 
                 match x {
                     Mov => {
+                        let from = self.read_next(instr.size);
+                        let to   = self.get_next(MemSize::U2).unpack();
+
+                        self.write(from, to);
+                    },
+                    Sxu => {
+                        let from = self.read_next(instr.size);
+                        let to   = self.get_next(MemSize::U2).unpack();
+
+                        let result = match from.size() {
+                            MemSize::U1 => MemReg::U1(from.unpack()),
+                            MemSize::U2 => MemReg::U2(from.unpack()),
+                            MemSize::U4 => MemReg::U4(from.unpack()),
+                            MemSize::U8 => MemReg::U8(from.unpack()),
+                        };
+                      self.write(result, to);
+                    },
+                    Sxi => {
                         let from = self.get_next(MemSize::U2).unpack();
-                        let to = self.get_next(MemSize::U2).unpack();
+                        let to   = self.get_next(MemSize::U2).unpack();
 
                         let val = self.read(instr.size, from);
-                        self.write(val, to);
+                        let result = match val.size() {
+                            MemSize::U1 => MemReg::U1(val.unpack_signed()),
+                            MemSize::U2 => MemReg::U2(val.unpack_signed()),
+                            MemSize::U4 => MemReg::U4(val.unpack_signed()),
+                            MemSize::U8 => MemReg::U8(val.unpack_signed()),
+                        };
+                      self.write(result, to);
+                    },
+                    Jmp => { // TODO: rework this, we should only test if nonzero, leave test for test set instructions
+                        let cond = self.get_next(MemSize::U1).unpack();
+                        let loc  = self.read_next(instr.size).unpack();
+                        let check = match cond {
+                            0 => true,
+                            1 => self.flags.contains(CpuFlags::LE),
+                            2 => self.flags.intersects(CpuFlags::LE | CpuFlags::EQ),
+                            3 => self.flags.contains(CpuFlags::EQ),
+                            4 => !self.flags.contains(CpuFlags::EQ),
+                            5 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
+                            6 => !self.flags.contains(CpuFlags::LE),
+                            _ => panic!("invalid condition to Jmp instruction."),
+                        };
+
+                        if check {
+                            self.regs.cur = loc;
+                        };
+                    },
+                    Tst => {
+                        let lhs = self.read_next(instr.size);
+                        let rhs = self.read_next(instr.size);
+
+                        let (lhs_u, rhs_u) = (lhs.unpack(), rhs.unpack());
+                        let (lhs_s, rhs_s) = (lhs.unpack_signed(), rhs.unpack_signed());
+
+                        self.flags.set(CpuFlags::EQ, lhs_u == rhs_u);
+                        self.flags.set(CpuFlags::LE, lhs_u <  rhs_u);
+                        self.flags.set(CpuFlags::LS, lhs_s <  rhs_s);
                     },
                     _   => panic!("unfinished instructions"),
                 };

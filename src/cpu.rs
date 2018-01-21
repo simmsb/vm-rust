@@ -105,8 +105,8 @@ bitflags! {
     #[derive(Default)]
     pub struct CpuFlags: u8 {
         const RUNNING = 0b0000001;
-        const SIGNED  = 0b0000010;
-        const ZERO    = 0b0000100;
-        const LE      = 0b0001000;
+        const EQ      = 0b0000010;
+        const LE      = 0b0000100;  // unsigned le
+        const LS      = 0b0001000;  // signed le
     }
 }

@@ -42,19 +42,19 @@ impl MemSize {
 impl MemReg {
     pub fn len(self) -> usize {
         match self {
-            MemReg::U1(_) => 1,
-            MemReg::U2(_) => 2,
-            MemReg::U4(_) => 4,
-            MemReg::U8(_) => 8,
+            MemReg::U1(..) => 1,
+            MemReg::U2(..) => 2,
+            MemReg::U4(..) => 4,
+            MemReg::U8(..) => 8,
         }
     }
 
     pub fn size(self) -> MemSize {
         match self {
-            MemReg::U1(_) => MemSize::U1,
-            MemReg::U2(_) => MemSize::U2,
-            MemReg::U4(_) => MemSize::U4,
-            MemReg::U8(_) => MemSize::U8,
+            MemReg::U1(..) => MemSize::U1,
+            MemReg::U2(..) => MemSize::U2,
+            MemReg::U4(..) => MemSize::U4,
+            MemReg::U8(..) => MemSize::U8,
         }
     }
 
@@ -64,6 +64,15 @@ impl MemReg {
             MemReg::U2(x) => N::from_u16(x).unwrap(),
             MemReg::U4(x) => N::from_u32(x).unwrap(),
             MemReg::U8(x) => N::from_u64(x).unwrap(),
+        }
+    }
+
+    pub fn unpack_signed<N: FromPrimitive>(self) -> N {
+        match self {
+            MemReg::U1(x) => N::from_i8(x  as i8).unwrap(),
+            MemReg::U2(x) => N::from_i16(x as i16).unwrap(),
+            MemReg::U4(x) => N::from_i32(x as i32).unwrap(),
+            MemReg::U8(x) => N::from_i64(x as i64).unwrap(),
         }
     }
 }
