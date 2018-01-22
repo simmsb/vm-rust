@@ -198,13 +198,15 @@ impl Cpu {
             Unary(x) => {
                 use self::Un::*;
 
-                let op = self.read_next(instr.size).unpack();
+                let op   = self.get_next(MemSize::U2).unpack();
+                let op_u: u64 = self.read(instr.size, op).unpack();
+                let op_s: i64 = self.read(instr.size, op).unpack_signed();
                 let to = self.get_next(MemSize::U2).unpack();
 
                 let result = match x {
-                    Neg => -(op as i64) as u64,
-                    Pos => (op as i64).abs() as u64,
-                    Not => !(op as u64),
+                    Neg => -op_s as u64,
+                    Pos => op_s.abs() as u64,
+                    Not => !op_u,
                 };
                 self.write(instr.size.pack(result), to);
             },
@@ -265,8 +267,8 @@ impl Cpu {
                         let lhs = self.read_next(instr.size);
                         let rhs = self.read_next(instr.size);
 
-                        let (lhs_u, rhs_u) = (lhs.unpack(), rhs.unpack());
-                        let (lhs_s, rhs_s) = (lhs.unpack_signed(), rhs.unpack_signed());
+                        let (lhs_u, rhs_u): (u64, u64) = (lhs.unpack(), rhs.unpack());
+                        let (lhs_s, rhs_s): (i64, i64) = (lhs.unpack_signed(), rhs.unpack_signed());
 
                         self.flags.set(CpuFlags::EQ, lhs_u == rhs_u);
                         self.flags.set(CpuFlags::LE, lhs_u <  rhs_u);

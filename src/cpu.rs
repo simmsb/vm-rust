@@ -85,7 +85,7 @@ impl Index<usize> for RegBlock {
             0 => &self.stk,
             1 => &self.bas,
             2 => &self.cur,
-            x => &self.regs[x],
+            x => &self.regs[x - 3],
         }
     }
 }
