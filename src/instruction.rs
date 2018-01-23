@@ -51,6 +51,7 @@ mod instr_intern_types {
         Sxu,
         Sxi,
         Jmp,
+        Set,
         Tst,
         Halt,
     }
@@ -110,8 +111,9 @@ impl InstrType {
                 1 => CpuManip::Sxu,
                 2 => CpuManip::Sxi,
                 3 => CpuManip::Jmp,
-                4 => CpuManip::Tst,
-                5 => CpuManip::Halt,
+                4 => CpuManip::Set,
+                5 => CpuManip::Tst,
+                6 => CpuManip::Halt,
                 _ => panic!("Invalid Manipulation instruction type."),
             }),
             3 => Mem(match val.id() {
@@ -245,9 +247,16 @@ impl Cpu {
                         };
                       self.write(result, to);
                     },
-                    Jmp => { // TODO: rework this, we should only test if nonzero, leave test for test set instructions
+                    Jmp => {
+                        let check: u8 = self.read_next(MemSize::U1).unpack();
+                        let loc   = self.read_next(instr.size).unpack();
+                        if check != 0 {
+                            self.regs.cur = loc;
+                        };
+                    },
+                    Set => {
                         let cond = self.get_next(MemSize::U1).unpack();
-                        let loc  = self.read_next(instr.size).unpack();
+                        let to   = self.get_next(MemSize::U2).unpack();
                         let check = match cond {
                             0 => true,
                             1 => self.flags.contains(CpuFlags::LE),
@@ -259,10 +268,8 @@ impl Cpu {
                             _ => panic!("invalid condition to Jmp instruction."),
                         };
 
-                        if check {
-                            self.regs.cur = loc;
-                        };
-                    },
+                        self.write(MemReg::U1(check as u8), to);
+                    }
                     Tst => {
                         let lhs = self.read_next(instr.size);
                         let rhs = self.read_next(instr.size);
@@ -274,9 +281,41 @@ impl Cpu {
                         self.flags.set(CpuFlags::LE, lhs_u <  rhs_u);
                         self.flags.set(CpuFlags::LS, lhs_s <  rhs_s);
                     },
-                    _   => panic!("unfinished instructions"),
+                    Halt => {
+                        self.running = false;
+                    },
                 };
             },
+            Mem(x) => {
+                use self::MemManip::*;
+
+                match x {
+                    Stks => {
+                        let pos = self.read_next(instr.size).unpack();
+                        self.regs.stk = pos;
+                    },
+                    Push => {
+                        let data = self.read_next(instr.size);
+                        self.push(data);
+                    },
+                    Pop => {
+                        let to  = self.get_next(MemSize::U2).unpack();
+                        let val = self.pop(instr.size);
+                        self.write(val, to);
+                    },
+                    Call => {
+                        let jmp_pos = self.read_next(instr.size).unpack();
+                        let cur = MemReg::U2(self.regs.cur as u16 + 1);
+                        self.push(cur);  // return address
+                        self.regs.cur = jmp_pos;
+
+                        let baseptr = MemReg::U8(self.regs.bas);
+                        self.push(baseptr); // save base pointer
+                        self.regs.bas = self.regs.stk;
+                    },
+                    _ => panic!("Unimplemented instruction!"),
+                }
+            }
             _ => panic!("unfinished instructions"),
         }
     }

@@ -126,4 +126,15 @@ impl Cpu {
             size.pack(val)
         }
     }
+
+    pub fn push(&mut self, mem: MemReg) {
+        let stkpos = self.regs.stk as usize;
+        self.write_memory(mem, stkpos);
+        self.regs.stk += mem.len() as u64;
+    }
+
+    pub fn pop(&mut self, size: MemSize) -> MemReg {
+        self.regs.stk -= size.len() as u64;
+        self.read_memory(size, self.regs.stk as usize)
+    }
 }

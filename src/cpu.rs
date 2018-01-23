@@ -46,6 +46,7 @@ pub struct Cpu {
     pub regs: RegBlock,
     pub flags: CpuFlags,
     pub cycles: u64,
+    pub running: bool,
 }
 
 impl Cpu {
@@ -55,6 +56,7 @@ impl Cpu {
             regs: RegBlock::new(regcount),
             flags: CpuFlags::default(),
             cycles: 0,
+            running: true,
         }
     }
 }
@@ -105,10 +107,9 @@ impl IndexMut<usize> for RegBlock {
 bitflags! {
     #[derive(Default)]
     pub struct CpuFlags: u8 {
-        const RUNNING = 0b0000001;
-        const EQ      = 0b0000010;
-        const LE      = 0b0000100;  // unsigned le
-        const LS      = 0b0001000;  // signed le
+        const EQ      = 0b0000001;
+        const LE      = 0b0000010;  // unsigned le
+        const LS      = 0b0000100;  // signed le
     }
 }
 
