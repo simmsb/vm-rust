@@ -59,6 +59,7 @@ impl Cpu {
     }
 }
 
+#[derive(Debug)]
 pub struct RegBlock {
     pub stk: Reg,
     pub bas: Reg,
@@ -96,7 +97,7 @@ impl IndexMut<usize> for RegBlock {
             0 => &mut self.stk,
             1 => &mut self.bas,
             2 => &mut self.cur,
-            x => &mut self.regs[x],
+            x => &mut self.regs[x - 3],
         }
     }
 }
@@ -108,5 +109,27 @@ bitflags! {
         const EQ      = 0b0000010;
         const LE      = 0b0000100;  // unsigned le
         const LS      = 0b0001000;  // signed le
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_regblock() {
+        let reg_count = 10;
+        let mut block = RegBlock::new(reg_count - 3);
+
+        block.stk = 1;
+        assert_eq!(block.stk, 1);
+        assert_eq!(block[0], 1);
+        block[1] = 2;
+        assert_eq!(block.bas, 2);
+        for i in 0..10 {
+            block[i] = i as u64;
+            assert_eq!(block[i], i as u64);
+        }
     }
 }
