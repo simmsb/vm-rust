@@ -1,4 +1,5 @@
-use num::{FromPrimitive};
+use std::io::{self, Read, Write};
+use num::FromPrimitive;
 use std::num::Wrapping;
 
 use cpu::{Cpu, Reg, CpuFlags};
@@ -313,7 +314,39 @@ impl Cpu {
                         self.push(baseptr); // save base pointer
                         self.regs.bas = self.regs.stk;
                     },
-                    _ => panic!("Unimplemented instruction!"),
+                    Ret => {
+                        //  | p1 | p2 | return_address | saved_base_pointer | local ...
+                        //                    ^(2)               ^(1)
+                        //  Stack will look like this when Ret is called
+                        //  first make stack pointer point to the saved base pointer (1)
+                        //  pop base pointer, stack now points to return address (2)
+                        //  pop return address, then restore base pointer to the saved base pointer
+                        //  decrement stack pointer by param to ret to clear locals
+                        //  jump to return address
+                        let param_len: u64 = self.read_next(instr.size).unpack();
+                        self.regs.stk   = self.regs.bas;
+                        let baseptr     = self.pop(MemSize::U8).unpack();
+                        let return_addr = self.pop(MemSize::U2).unpack();
+                        self.regs.bas   = baseptr;
+                        self.regs.stk  -= param_len;
+                        self.regs.cur   = return_addr;
+                    },
+                };
+            },
+            IO(x) => {
+                use self::CpuIO::*;
+
+                match x {
+                    Getc => {
+                        let to = self.get_next(MemSize::U2).unpack();
+                        let mut arr = [0];
+                        io::stdin().read_exact(&mut arr).expect("Failed to read IO!");
+                        self.write(MemReg::U1(arr[0]), to);
+                    },
+                    Putc => {
+                        let val = [self.read_next(instr.size).unpack()];
+                        io::stdout().write(&val).expect("Failed to write IO!");
+                    }
                 }
             }
             _ => panic!("unfinished instructions"),
