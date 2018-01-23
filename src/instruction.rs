@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use num::FromPrimitive;
 use std::num::Wrapping;
 
-use cpu::{Cpu, Reg, CpuFlags};
+use cpu::{Cpu, Reg, CpuFlags, CpuIndex, CpuIndexable};
 use memory::{MemReg, MemSize};
 
 //  size  type     id
@@ -26,53 +26,87 @@ impl InstrDecode for InstrNum {
     fn id  (&self) -> u8 { *self        as u8 }
 }
 
-mod instr_intern_types {
-    pub enum Bin {
-        Add,
-        Sub,
-        Mul,
-        UDiv,
-        IDiv,
-        Shl,
-        Shr,
-        Sar,
-        And,
-        Or,
-        Xor,
-    }
 
-    pub enum Un {
-        Neg,
-        Pos,
-        Not,
-    }
+#[derive(Copy, Clone)]
+pub enum Bin {
+    Add,
+    Sub,
+    Mul,
+    UDiv,
+    IDiv,
+    Shl,
+    Shr,
+    Sar,
+    And,
+    Or,
+    Xor,
+}
 
-    pub enum CpuManip {
-        Mov,
-        Sxu,
-        Sxi,
-        Jmp,
-        Set,
-        Tst,
-        Halt,
-    }
-
-    pub enum MemManip {
-        Stks,
-        Push,
-        Pop,
-        Call,
-        Ret,
-    }
-
-    pub enum CpuIO {
-        Getc,
-        Putc,
+impl Bin {
+    pub fn encode(&self, size: u8) -> InstrNum {
+        return (size as u16) << 14 | *self as u16;
     }
 }
 
-use self::instr_intern_types::*;
+#[derive(Copy, Clone)]
+pub enum Un {
+    Neg,
+    Pos,
+    Not,
+}
 
+impl Un {
+    pub fn encode(&self, size: u8) -> InstrNum {
+        return (size as u16) << 14 | 1 << 8 | *self as u16;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum CpuManip {
+    Mov,
+    Sxu,
+    Sxi,
+    Jmp,
+    Set,
+    Tst,
+    Halt,
+}
+
+impl CpuManip {
+    pub fn encode(&self, size: u8) -> InstrNum {
+        return (size as u16) << 14 | 2 << 8 | *self as u16;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum MemManip {
+    Stks,
+    Push,
+    Pop,
+    Call,
+    Ret,
+}
+
+impl MemManip {
+    pub fn encode(&self, size: u8) -> InstrNum {
+        return (size as u16) << 14 | 3 << 8 | *self as u16;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum CpuIO {
+    Getc,
+    Putc,
+}
+
+impl CpuIO {
+    pub fn encode(&self, size: u8) -> InstrNum {
+        return (size as u16) << 14 | 4 << 8 | *self as u16;
+    }
+}
+
+
+#[derive(Copy, Clone)]
 pub enum InstrType {
     Binary(Bin),
     Unary(Un),
@@ -130,7 +164,7 @@ impl InstrType {
                 1 => CpuIO::Putc,
                 _ => panic!("Invalid IO instruction type."),
             }),
-            _ => panic!("Could not decode instruction"),
+            _ => panic!("Could not decode instruction {:?}", val),
         }
     }
 }
@@ -340,16 +374,64 @@ impl Cpu {
                     Getc => {
                         let to = self.get_next(MemSize::U2).unpack();
                         let mut arr = [0];
-                        io::stdin().read_exact(&mut arr).expect("Failed to read IO!");
+                        io::stdin().read_exact(&mut arr).unwrap();
                         self.write(MemReg::U1(arr[0]), to);
                     },
                     Putc => {
                         let val = [self.read_next(instr.size).unpack()];
-                        io::stdout().write(&val).expect("Failed to write IO!");
+                        io::stdout().write(&val).unwrap();
                     }
                 }
             }
             _ => panic!("unfinished instructions"),
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_binary_ops() {
+        use instruction::Bin::*;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        let ta = MemReg::U4(4);
+        let tb = MemReg::U4(2);
+
+        let tests = [
+            (Add, MemReg::U4(6)),
+            (Sub, MemReg::U4(2)),
+            (Mul, MemReg::U4(8)),
+            (UDiv, MemReg::U4(2)),
+            // test IDiv and Sar seperately
+            (Shl, MemReg::U4(16)),
+            (Shr, MemReg::U4(1)),
+            (And, MemReg::U4(0)),
+            (Or,  MemReg::U4(6)),
+            (Xor, MemReg::U4(6)),
+        ];
+
+        let result_place = CpuIndex::make_index(4, true, false);
+
+        for &(op, expected) in tests.iter() {
+            cpu.write(ta, 0);
+            cpu.write(tb, tb.len() as u16);
+
+            cpu.regs.cur = 5;
+            cpu.regs.stk = 5; // set stack here so we can use push op
+            cpu.push(MemReg::U2(op.encode(3)));
+            cpu.push(MemReg::U2(CpuIndex::make_index(0, false, true)));
+            cpu.push(MemReg::U2(CpuIndex::make_index(tb.len() as u16, false, true)));
+            cpu.push(MemReg::U2(result_place));
+
+            let instr = cpu.get_instr();
+            cpu.run_instr(instr);
+
+            assert_eq!(cpu.read(MemSize::U4, result_place), expected);
         }
     }
 }

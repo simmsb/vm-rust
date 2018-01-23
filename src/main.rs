@@ -5,6 +5,8 @@ extern crate num_derive;
 extern crate byteorder;
 extern crate num;
 
+use std::env;
+
 mod cpu;
 mod memory;
 mod instruction;
@@ -16,13 +18,12 @@ use instruction::InstrType;
 fn main() {
     let mut cpu = Cpu::new(1 << 16, 8);
 
-    // cpu.write_memory(MemSize::U4, 0, 0xffffffff);
+    let args: Vec<String> = env::args().collect();
 
-    // println!("memory is {}", cpu.read_memory(MemSize::U4, 0));
+    let fname = &args[1];
 
-    // for i in 0..4 {
-    //     println!("memory at {} is: {}", i, cpu.read_memory(MemSize::U1, i));
-    // }
+    cpu.load_file(fname);
+    cpu.exe_loop();
 }
 
 
