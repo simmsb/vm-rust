@@ -400,6 +400,50 @@ impl Cpu {
 mod tests {
     use super::*;
 
+<<<<<<< Updated upstream
+=======
+    fn build_instruction(cpu: &mut Cpu, instr: Bin, size: MemSize, args: &[MemReg]) -> MemReg {
+        let result_place = CpuIndex::make_index(3, true, false);
+        cpu.regs.stk = 0;
+        let arg_indexes: Vec<u64> = args.into_iter().map(| &arg | {
+            let pos = cpu.regs.stk;
+            cpu.push(arg);
+            pos
+        }).collect();
+        cpu.regs.cur = cpu.regs.stk;
+        cpu.push(MemReg::U2(instr.encode(size as u8).0));
+        for pos in arg_indexes {
+            cpu.push(MemReg::U2(CpuIndex::make_index(pos as u16, false, true)));
+        }
+        cpu.push(MemReg::U2(result_place));
+
+        cpu.write(size.pack(0), result_place);
+
+        let instr = cpu.get_instr();
+        cpu.run_instr(instr);
+
+        cpu.read(size, result_place)
+    }
+
+    fn run_un_op(cpu: &mut Cpu, instr: Un, size: MemSize, arg: u64) -> MemReg {
+        let result_place = CpuIndex::make_index(4, true, false);
+
+        cpu.regs.stk = 0;
+        cpu.push(size.pack(arg));
+        cpu.regs.cur = cpu.regs.stk;
+        cpu.push(MemReg::U2(instr.encode(size as u8).0));
+        cpu.push(MemReg::U2(CpuIndex::make_index(0, false, true)));
+        cpu.push(MemReg::U2(result_place));
+
+        cpu.write(size.pack(0), result_place);
+
+        let instr = cpu.get_instr();
+        cpu.run_instr(instr);
+
+        cpu.read(size, result_place)
+    }
+
+>>>>>>> Stashed changes
     #[test]
     fn test_binary_ops() {
         use instruction::Bin::*;
@@ -410,6 +454,7 @@ mod tests {
         let tb = 2;
 
         let tests = [
+<<<<<<< Updated upstream
             (Add,  4 + 2),
             (Sub,  4 - 2),
             (Mul,  4 * 2),
@@ -420,6 +465,50 @@ mod tests {
             (And, 4 & 2),
             (Or,  4 | 2),
             (Xor, 4 ^ 2),
+=======
+            (Add,  ta + tb),
+            (Sub,  ta - tb),
+            (Mul,  ta * tb),
+            (UDiv, ta / tb),
+            (Shl, ta << tb),
+            (Shr, ta >> tb),
+            (And, ta & tb),
+            (Or,  ta | tb),
+            (Xor, ta ^ tb),
+        ];
+
+        let ta_s: i64 = -8;
+
+        let stests = [
+            (IDiv, ta_s /  tb as i64),
+            (Sar,  ta_s >> tb),
+        ];
+
+        for &size in [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8].iter() {
+            for &(op, expected) in tests.iter() {
+                let result = build_instruction(&mut cpu, op, size, &[size.pack(ta), size.pack(tb)]);
+                assert_eq!(result, size.pack(expected), "instruction: {:?}", op);
+            }
+
+            for &(op, expected) in stests.iter() {
+                let result: i64 = build_instruction(&mut cpu, op, size, &[size.pack(ta_s as u64), size.pack(tb)]).unpack_signed();
+                assert_eq!(result, expected, "instruction: {:?}", op);
+            }
+        }
+    }
+
+    #[test]
+    fn test_unary_ops() {
+        use instruction::Un::*;
+
+        let mut cpu = Cpu::new(100, 10);
+        let t: i64 = -5;
+
+        let tests = [
+            (Neg, -t),
+            (Pos, t.abs()),
+            (Not, !t),
+>>>>>>> Stashed changes
         ];
 
         let result_place = CpuIndex::make_index(4, true, false);
@@ -442,6 +531,34 @@ mod tests {
 
                 assert_eq!(cpu.read(size, result_place), size.pack(expected), "instruction: {:?}", op);
             }
+        }
+    }
+
+    #[test]
+    fn test_cpu_manip_mov() {
+        use instruction::CpuManip::Mov;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        let test_num = u64::max_value();
+
+        for &size in [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8].iter() {
+            let result_place = CpuIndex::make_index(3, true, false);
+
+            cpu.regs.stk = 0;
+            cpu.push(size.pack(test_num));
+            cpu.regs.cur = cpu.regs.stk;
+
+            cpu.push(MemReg::U2(Mov.encode(size as u8).0));
+            cpu.push(MemReg::U2(CpuIndex::make_index(0, false, true)));
+            cpu.push(MemReg::U2(result_place));
+
+            cpu.write(size.pack(0), result_place);
+
+            let instr = cpu.get_instr();
+            cpu.run_instr(instr);
+            let result = cpu.read(size, result_place);
+            assert_eq!(result, size.pack(test_num), "instruction: {:?}", Mov);
         }
     }
 }
