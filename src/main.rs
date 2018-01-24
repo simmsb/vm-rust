@@ -11,9 +11,8 @@ mod cpu;
 mod memory;
 mod instruction;
 
-use cpu::{Cpu, CpuIndex, CpuIndexable};
-use memory::{MemReg};
-use instruction::InstrType;
+use ::cpu::Cpu;
+use ::instruction::InstrType;
 
 fn main() {
     let mut cpu = Cpu::new(1 << 16, 8);
@@ -29,6 +28,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use ::cpu::{CpuIndex, CpuIndexable};
+    use ::memory::MemReg;
     use super::*;
 
     #[test]

@@ -3,8 +3,9 @@ use std::io::{self, Read, Write};
 use num::FromPrimitive;
 use std::num::Wrapping;
 
-use cpu::{Cpu, Reg, CpuFlags, CpuIndex, CpuIndexable};
-use memory::{MemReg, MemSize};
+#[allow(unused_imports)]
+use ::cpu::{Cpu, Reg, CpuFlags, CpuIndex, CpuIndexable};
+use ::memory::{MemReg, MemSize};
 
 //  size  type     id
 //  [bb][bbbbbb][bbbbbbbb]
@@ -50,12 +51,13 @@ pub enum Bin {
 }
 
 impl Bin {
-    pub fn encode(&self, size: u8) -> InstrNum {
+    #[allow(dead_code)]
+    fn encode(&self, size: u8) -> InstrNum {
         return InstrNum((size as u16) << 14 | *self as u16);
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Un {
     Neg,
     Pos,
@@ -63,12 +65,13 @@ pub enum Un {
 }
 
 impl Un {
-    pub fn encode(&self, size: u8) -> InstrNum {
+    #[allow(dead_code)]
+    fn encode(&self, size: u8) -> InstrNum {
         return InstrNum((size as u16) << 14 | 1 << 8 | *self as u16);
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum CpuManip {
     Mov,
     Sxu,
@@ -80,12 +83,13 @@ pub enum CpuManip {
 }
 
 impl CpuManip {
-    pub fn encode(&self, size: u8) -> InstrNum {
+    #[allow(dead_code)]
+    fn encode(&self, size: u8) -> InstrNum {
         return InstrNum((size as u16) << 14 | 2 << 8 | *self as u16);
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum MemManip {
     Stks,
     Push,
@@ -95,19 +99,21 @@ pub enum MemManip {
 }
 
 impl MemManip {
-    pub fn encode(&self, size: u8) -> InstrNum {
+    #[allow(dead_code)]
+    fn encode(&self, size: u8) -> InstrNum {
         return InstrNum((size as u16) << 14 | 3 << 8 | *self as u16);
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum CpuIO {
     Getc,
     Putc,
 }
 
 impl CpuIO {
-    pub fn encode(&self, size: u8) -> InstrNum {
+    #[allow(dead_code)]
+    fn encode(&self, size: u8) -> InstrNum {
         return InstrNum((size as u16) << 14 | 4 << 8 | *self as u16);
     }
 }
@@ -389,8 +395,7 @@ impl Cpu {
                         io::stdout().write(&val).unwrap();
                     }
                 }
-            }
-            _ => panic!("unfinished instructions"),
+            },
         }
     }
 }
@@ -400,8 +405,6 @@ impl Cpu {
 mod tests {
     use super::*;
 
-<<<<<<< Updated upstream
-=======
     fn build_instruction(cpu: &mut Cpu, instr: Bin, size: MemSize, args: &[MemReg]) -> MemReg {
         let result_place = CpuIndex::make_index(3, true, false);
         cpu.regs.stk = 0;
@@ -443,29 +446,16 @@ mod tests {
         cpu.read(size, result_place)
     }
 
->>>>>>> Stashed changes
     #[test]
     fn test_binary_ops() {
         use instruction::Bin::*;
 
         let mut cpu = Cpu::new(100, 10);
 
-        let ta = 4;
-        let tb = 2;
+        let ta: u64 = 4;
+        let tb: u64 = 2;
 
         let tests = [
-<<<<<<< Updated upstream
-            (Add,  4 + 2),
-            (Sub,  4 - 2),
-            (Mul,  4 * 2),
-            (UDiv, 4 / 2),
-            // test IDiv and Sar seperately
-            (Shl, 4 << 2),
-            (Shr, 4 >> 2),
-            (And, 4 & 2),
-            (Or,  4 | 2),
-            (Xor, 4 ^ 2),
-=======
             (Add,  ta + tb),
             (Sub,  ta - tb),
             (Mul,  ta * tb),
@@ -508,28 +498,12 @@ mod tests {
             (Neg, -t),
             (Pos, t.abs()),
             (Not, !t),
->>>>>>> Stashed changes
         ];
 
-        let result_place = CpuIndex::make_index(4, true, false);
         for &size in [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8].iter() {
             for &(op, expected) in tests.iter() {
-                cpu.regs.stk = 0;
-                cpu.push(size.pack(ta));
-                let (arg0_pos, arg1_pos) = (0, cpu.regs.stk as u16);
-                cpu.push(size.pack(tb));
-                cpu.regs.cur = cpu.regs.stk;
-                cpu.push(MemReg::U2(op.encode(size as u8).0));
-                cpu.push(MemReg::U2(CpuIndex::make_index(arg0_pos, false, true)));
-                cpu.push(MemReg::U2(CpuIndex::make_index(arg1_pos, false, true)));
-                cpu.push(MemReg::U2(result_place));
-
-                cpu.write(size.pack(0), result_place);
-
-                let instr = cpu.get_instr();
-                cpu.run_instr(instr);
-
-                assert_eq!(cpu.read(size, result_place), size.pack(expected), "instruction: {:?}", op);
+                let result: i64 = run_un_op(&mut cpu, op, size, t as u64).unpack_signed();
+                assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
     }
