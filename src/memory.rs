@@ -1,5 +1,6 @@
 use byteorder::{ByteOrder, NativeEndian};
 use num::FromPrimitive;
+use std::intrinsics::type_name;
 
 use ::cpu::{Cpu, CpuIndex, Reg, CpuIndexable};
 
@@ -60,20 +61,20 @@ impl MemReg {
 
     pub fn unpack<N: FromPrimitive>(self) -> N {
         match self {
-            MemReg::U1(x) => N::from_u8(x).unwrap(),
-            MemReg::U2(x) => N::from_u16(x).unwrap(),
-            MemReg::U4(x) => N::from_u32(x).unwrap(),
-            MemReg::U8(x) => N::from_u64(x).unwrap(),
-        }
+            MemReg::U1(x) => N::from_u8(x),
+            MemReg::U2(x) => N::from_u16(x),
+            MemReg::U4(x) => N::from_u32(x),
+            MemReg::U8(x) => N::from_u64(x),
+        }.unwrap_or_else(|| { unsafe { panic!("failed to unpack unsigned {:?} to {:?}", self, type_name::<N>()) }})
     }
 
     pub fn unpack_signed<N: FromPrimitive>(self) -> N {
         match self {
-            MemReg::U1(x) => N::from_i8(x  as i8).unwrap(),
-            MemReg::U2(x) => N::from_i16(x as i16).unwrap(),
-            MemReg::U4(x) => N::from_i32(x as i32).unwrap(),
-            MemReg::U8(x) => N::from_i64(x as i64).unwrap(),
-        }
+            MemReg::U1(x) => N::from_i8(x as i8),
+            MemReg::U2(x) => N::from_i16(x as i16),
+            MemReg::U4(x) => N::from_i32(x as i32),
+            MemReg::U8(x) => N::from_i64(x as i64),
+        }.unwrap_or_else(|| { unsafe { panic!("failed to unpack signed {:?} to {:?}", self, type_name::<N>()) }})
     }
 }
 

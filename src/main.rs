@@ -1,3 +1,5 @@
+#![feature(core_intrinsics)]
+
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
