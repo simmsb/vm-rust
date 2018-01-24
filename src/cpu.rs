@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::Read;
 use std::ops::{Index, IndexMut};
 
 
@@ -58,6 +60,18 @@ impl Cpu {
             cycles: 0,
             running: true,
         }
+    }
+
+    pub fn exe_loop(&mut self) {
+        while self.running {
+            let instr = self.get_instr();
+            self.run_instr(instr);
+        }
+    }
+
+    pub fn load_file(&mut self, filename: &str) {
+        let mut file = File::open(filename).unwrap();
+        file.read_to_end(&mut self.mem).unwrap();
     }
 }
 
