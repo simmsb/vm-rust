@@ -431,7 +431,7 @@ mod tests {
         }).collect()
     }
 
-    fn build_instruction<T: InstrEncode>(cpu: &mut Cpu, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
+    fn run_instruction<T: InstrEncode>(cpu: &mut Cpu, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
         let result_place = CpuIndex::make_index(3, true, false);
         cpu.regs.cur = cpu.regs.stk;
         cpu.push(MemReg::U2(instr.encode(size as u8).0));
@@ -480,14 +480,14 @@ mod tests {
             for &(op, expected) in tests.iter() {
                 let indexes = push_args(&mut cpu, &[size.pack(ta), size.pack(tb)]);
                 let params  = make_memrefs(&indexes);
-                let result  = build_instruction(&mut cpu, op, size, &params);
+                let result  = run_instruction(&mut cpu, op, size, &params);
                 assert_eq!(result, size.pack(expected), "instruction: {:?}", op);
             }
 
             for &(op, expected) in stests.iter() {
                 let indexes = push_args(&mut cpu, &[size.pack(ta_s as u64), size.pack(tb)]);
                 let params  = make_memrefs(&indexes);
-                let result  = build_instruction(&mut cpu, op, size, &params).unpack_signed();
+                let result  = run_instruction(&mut cpu, op, size, &params).unpack_signed();
                 assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
@@ -510,7 +510,7 @@ mod tests {
             for &(op, expected) in tests.iter() {
                 let indexes = push_args(&mut cpu, &[size.pack(t as u64)]);
                 let params  = make_memrefs(&indexes);
-                let result  = build_instruction(&mut cpu, op, size, &params).unpack_signed();
+                let result  = run_instruction(&mut cpu, op, size, &params).unpack_signed();
                 assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
@@ -527,7 +527,7 @@ mod tests {
         for &size in SIZES.iter() {
             let indexes = push_args(&mut cpu, &[size.pack(test_num)]);
             let params  = make_memrefs(&indexes);
-            let result  = build_instruction(&mut cpu, Mov, size, &params);
+            let result  = run_instruction(&mut cpu, Mov, size, &params);
             assert_eq!(result, size.pack(test_num), "instruction: {:?}", Mov);
         }
     }
@@ -545,15 +545,42 @@ mod tests {
             let indexes = push_args(&mut cpu, &[size.pack(sign_num as u8 as u64)]);
             let mut params  = make_memrefs(&indexes);
             params.push(MemReg::U1(0));
-            let signed_result = build_instruction(&mut cpu, Sxi, size, &params).unpack_signed() as i8;
+            let signed_result = run_instruction(&mut cpu, Sxi, size, &params).unpack_signed() as i8;
 
             let indexes = push_args(&mut cpu, &[size.pack(usign_num as u64)]);
             let mut params  = make_memrefs(&indexes);
             params.push(MemReg::U1(0));
-            let unsign_result = build_instruction(&mut cpu, Sxu, size, &params).unpack() as u8;
+            let unsign_result = run_instruction(&mut cpu, Sxu, size, &params).unpack() as u8;
 
             assert_eq!(signed_result,  sign_num);
             assert_eq!(unsign_result, usign_num);
         }
+    }
+
+    #[test]
+    fn test_cpu_manip_jmp() {
+        use instruction::CpuManip::Jmp;
+        let jump_location = 10;
+
+        let mut cpu = Cpu::new(100, 10);
+        run_instruction(&mut cpu, Jmp, MemSize::U2, &[MemReg::U2(CpuIndex::make_index(1, false, false)), MemReg::U2(jump_location)]);
+
+        assert_eq!(cpu.regs.cur, jump_location as u64);
+    }
+
+    #[test]
+    fn test_cpu_manip_set() {
+        use instruction::CpuManip::Set;
+        use super::CpuFlags;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        cpu.flags = CpuFlags::LE;
+
+        let result = run_instruction(&mut cpu, Set, MemSize::U1, &[MemReg::U1(1)]).unpack();
+        assert_eq!(result, 1);
+
+        let result = run_instruction(&mut cpu, Set, MemSize::U1, &[MemReg::U1(6)]).unpack();
+        assert_eq!(result, 0);
     }
 }
