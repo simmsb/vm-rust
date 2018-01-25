@@ -1,5 +1,4 @@
 use byteorder::{ByteOrder, NativeEndian};
-use num::FromPrimitive;
 
 use ::cpu::{Cpu, CpuIndex, Reg, CpuIndexable};
 
@@ -58,21 +57,21 @@ impl MemReg {
         }
     }
 
-    pub fn unpack<N: FromPrimitive>(self) -> N {
+    pub fn unpack(self) -> u64 {
         match self {
-            MemReg::U1(x) => N::from_u8(x).unwrap(),
-            MemReg::U2(x) => N::from_u16(x).unwrap(),
-            MemReg::U4(x) => N::from_u32(x).unwrap(),
-            MemReg::U8(x) => N::from_u64(x).unwrap(),
+            MemReg::U1(x) => x as u64,
+            MemReg::U2(x) => x as u64,
+            MemReg::U4(x) => x as u64,
+            MemReg::U8(x) => x as u64,
         }
     }
 
-    pub fn unpack_signed<N: FromPrimitive>(self) -> N {
+    pub fn unpack_signed(self) -> i64 {
         match self {
-            MemReg::U1(x) => N::from_i8(x  as i8).unwrap(),
-            MemReg::U2(x) => N::from_i16(x as i16).unwrap(),
-            MemReg::U4(x) => N::from_i32(x as i32).unwrap(),
-            MemReg::U8(x) => N::from_i64(x as i64).unwrap(),
+            MemReg::U1(x) => x as i8  as i64,
+            MemReg::U2(x) => x as i16 as i64,
+            MemReg::U4(x) => x as i32 as i64,
+            MemReg::U8(x) => x as i64,
         }
     }
 }
@@ -100,9 +99,10 @@ impl Cpu {
     }
 
     pub fn write(&mut self, dat: MemReg, to: CpuIndex) {
+        println!("{}", to);
         if to.deref() {
             let to = self.read(dat.size(), to.strip_deref()).unpack();
-            self.write_memory(dat, to);
+            self.write_memory(dat, to as usize);
         } else {
             if to.register() {
                 let val: Reg = dat.unpack();
