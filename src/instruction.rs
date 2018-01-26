@@ -226,8 +226,6 @@ impl Cpu {
 
                 let (lhs, rhs) = (Wrapping(left.unpack()), Wrapping(right.unpack()));
 
-                // TODO: might have to do instr.size.operator(lhs, rhs, | x, y | { x + y })
-                // if this doesn't work
                 let result = match x {
                     Add  => lhs + rhs,
                     Sub  => lhs - rhs,
@@ -317,9 +315,13 @@ impl Cpu {
                             1 => self.flags.contains(CpuFlags::LE),
                             2 => self.flags.intersects(CpuFlags::LE | CpuFlags::EQ),
                             3 => self.flags.contains(CpuFlags::EQ),
-                            4 => !self.flags.contains(CpuFlags::EQ),
-                            5 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
+                            4 => self.flags.contains(CpuFlags::LS),
+                            5 => self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
                             6 => !self.flags.contains(CpuFlags::LE),
+                            7 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
+                            8 => !self.flags.contains(CpuFlags::EQ),
+                            9 => self.flags.contains(CpuFlags::LS),
+                            10 => self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
                             _ => panic!("invalid condition to Jmp instruction."),
                         };
 

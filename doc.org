@@ -1,2 +1,237 @@
 #+TITLE: Instruction Documentation
+#+OPTIONS: prop:t
 
+* Instruction format
+Written as ={width}[{param}]=, for example: =2[opcode]1[flag]= means an opcode
+of width two, followed by a parameter named 'flag' with a width of one byte.
+
+Parameters can be either flags (usually one byte), read addresses, or write addresses.
+
+** Opcodes
+An opcode describes the instruction to execute. And are encoded in the form:
+=2[size] 6[group] 8[index]=, although with bit widths, not byte widths.
+
+The size of an instruction is usually used to determine the width of the parameters it will operate on, for example: the binary =Add= instruction with a size of ~3~ will work on 8 byte operands.
+
+** Read addresses
+A parameter that reads a value. The upper two bits are 'flag' bits determining
+if a register should be read, and/ or a memory address should be read.
+
+If no flag bits are set, the value is taken literally/ as immediate.
+If the register (15th) bit is set, the register at the index of the value is read.
+If the dereference (14th) bit is set, the memory at the location of the address is read. If the register bit is set: the value of the register is dereferenced.
+
+** Write addreses
+A parameter that writes a value, like a read address, the upper two bits are flags.
+
+If no flag bits are set, a value will be written to memory at location of the address.
+If the register bit is set, a value will be written to the register at the index of the address.
+If the dereference bit is set, the address is treated as a read address (without the dereference bit set) and read, then a value is written to memory at the location read.
+
+* Binary operators
+:PROPERTIES:
+:Group: 0
+:Shape: =2[opcode] 2[lhs] 2[rhs] 2[to]=
+:END:
+
+- lhs :: Read, The first parameter to the binary instruction.
+- rhs :: Read, The second parameter to the binary instruction.
+- to  :: Write, The location to write the result of the binary op to.
+
+#+NAME: Valid operations
+| Opcode | Index | Description              |
+|--------+-------+--------------------------|
+| Add    |     0 | Binary add               |
+| Sub    |     1 | Binary sub               |
+| Mul    |     2 | Binary mul               |
+| UDiv   |     3 | Unsigned division        |
+| IDiv   |     4 | Signed division          |
+| Shl    |     5 | Left (logical) shift     |
+| Shr    |     6 | Right (logical) shift    |
+| Sar    |     7 | Right (arithmetic) shift |
+| And    |     8 | Bitwise And              |
+| Or     |     9 | Bitwise Or               |
+| Xor    |    10 | Bitwise Xor              |
+
+* Unary operators
+:PROPERTIES:
+:Group: 1
+:Shape: =2[opcode] 2[op] 2[to]=
+:END:
+
+ - op :: Read, Parameter to apply the unary operator on.
+ - to :: Write, Location to write the result of the unary op to.
+
+#+NAME: Valid operations
+| Opcode | Index | Description   |
+|--------+-------+---------------|
+| Neg    |     0 | Signed negate |
+| Pos    |     1 | Signed abs    |
+| Not    |     2 | Bitwise not   |
+
+* Cpu manipulation
+:PROPERTIES:
+:Group: 2
+:END:
+** Mov
+:PROPERTIES:
+:Index: 0
+:Shape: =2[opcode] 2[from] 2[to]=
+:END:
+
+Copy value from one location to another.
+
+- from :: Read, Value to write to location described by ~to~
+- to   :: Write, Location to write the value of ~from~ to.
+** Extend
+:PROPERTIES:
+:Shape: =2[opcode] 2[from] 1[size] 2[to]=
+:END:
+
+Extend one value to a different size, the size param of the opcode is the size
+of the input operand.
+
+- from :: Read, Value to extend.
+- size :: Flag, Size to resize to.
+- to   :: Write, Location to write resized value to.
+
+| Opcode | Index | Description     |
+|--------+-------+-----------------|
+| Sxu    |     1 | Unsigned resize |
+| Sxi    |     2 | Signed resize   |
+** Jmp
+:PROPERTIES:
+:Index: 3
+:Shape: =2[opcode] 2[check] 2[loc]=
+:END:
+
+Jump to a memory location
+
+- check :: Read, Location to check whether to jump on, jump happens if nonzero. Always reads a single byte.
+- loc   :: Read, Location to jump to.
+** Set
+:PROPERTIES:
+:Index: 4
+:Shape: =2[opcode] 1[cond] 2[location]=
+:END:
+
+Set a memory location based on cpu flags.
+Sets to =1= if test was true, =0= if false.
+
+- cond :: Flag, condition to set on.
+- to   :: Write, Location to write to.
+
+#+NAME: condition flags
+| Check flag | Test               |
+|------------+--------------------|
+|          0 | Always True        |
+|          1 | LE flag set        |
+|          2 | LE and EQ flag set |
+|          3 | EQ flag set        |
+|          4 | LS flag set        |
+|          5 | LS and EQ flag set |
+|          6 | LE flag Not set    |
+|          7 | LE and EQ Not set  |
+|          8 | EQ Not set         |
+|          9 | LS Not set         |
+|         10 | LS nad EQ Not set  |
+
+#+NAME: Cpu Flags
+| Flag | Description      |
+|------+------------------|
+| LE   | Less Than        |
+| EQ   | Equal            |
+| LS   | Signed Less Than |
+** Tst
+:PROPERTIES:
+:Index: 5
+:Shape: =2[opcode] 2[lhs] 2[rhs]=
+:END:
+
+Set flags by comparing two operands.
+
+- lhs :: Read, Left operand to compare
+- rhs :: Read, Right operand to compare
+** Halt
+:PROPERTIES:
+:Index: 6
+:Shape: =2[opcode]=
+:END:
+
+Halts the cpu
+* Memory manipulation
+:PROPERTIES:
+:Group: 3
+:END:
+** Stks
+:PROPERTIES:
+:Index: 0
+:Shape: =2[opcode] 2[pos]=
+:END:
+
+Sets the location of the stack pointer.
+
+- pos :: Read, Location to set stack pointer to.
+** Push
+:PROPERTIES:
+:Index: 1
+:Shape: =2[opcode] 2[data]=
+:END:
+
+Push a value to the stack.
+Opcode size param is size to read and push.
+
+- data :: Read, Value to push to the stack
+** Pop
+:PROPERTIES:
+:Index: 2
+:Shape: =2[opcode] 2[to]=
+:END:
+
+Pop a value from the stack. Opcode size param is size to pop and
+write.
+
+- to :: Write, Location to write popped value to.
+** Call
+:PROPERTIES:
+:Index: 3
+:Shape: =2[opcode] 2[jmp_pos]=
+:END:
+
+Jump to a location, pushing base address, stores base pointer and sets new base
+pointer.
+
+- jmp_pos :: Location to jump to.
+** Ret
+:PROPERTIES:
+:Index: 4
+:Shape: =2[opcode] 2[param_len]=
+:END:
+
+Reset stack and restore base pointer, pop return address and jump to it.
+
+- param_len :: Number of bytes to erase from the stack to clear function
+               parameters.
+* IO
+:PROPERTIES:
+:Group: 4
+:END:
+** Getc
+:PROPERTIES:
+:Index: 0
+:Shape: =2[opcode] 2[to]=
+:END:
+
+Read a byte from stdin, writing to given location.
+
+- to :: Location to write read character to. Always writes 1 byte.
+** Putc
+:PROPERTIES:
+:Index: 1
+:Shape: =2[opcode] 2[val]=
+:END:
+
+Write a byte to stout. If instruction size param is larger than 1 byte the value
+read is truncated.
+
+- val :: Character to write to stdout.
