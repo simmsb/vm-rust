@@ -278,7 +278,6 @@ impl Cpu {
                         let from = self.read_next(instr.size).unpack();
                         let size = self.get_next(MemSize::U1).unpack();
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
-                        println!("to = {}", to);
                         let result = match size {
                             0 => MemReg::U1(from as u8),
                             1 => MemReg::U2(from as u16),
@@ -293,7 +292,6 @@ impl Cpu {
                         let size = self.get_next(MemSize::U1).unpack();
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
 
-                        println!("to = {}", to);
                         let val = self.read(instr.size, from).unpack_signed();
                         let result = match size {
                             0 => MemReg::U1(val as i8 as u8),
@@ -416,13 +414,15 @@ mod tests {
 
     const SIZES : [MemSize; 4] = [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8];
 
-    fn push_args(cpu: &mut Cpu, args: &[MemReg]) -> Vec<u16> {
-        cpu.regs.stk = 0;
-        args.into_iter().map(| &arg | {
-            let pos = cpu.regs.stk;
-            cpu.push(arg);
+    fn push_args(cpu: &mut Cpu, args: &[MemReg]) -> (Vec<u16>, usize) {
+        let mut base = 0;
+        let indexes = args.into_iter().map(| &arg | {
+            let pos = base;
+            cpu.write_memory(arg, base);
+            base += arg.len();
             pos as u16
-        }).collect()
+        }).collect();
+        (indexes, base)
     }
 
     fn make_memrefs(indexes: &Vec<u16>) -> Vec<MemReg> {
@@ -431,14 +431,17 @@ mod tests {
         }).collect()
     }
 
-    fn run_instruction<T: InstrEncode>(cpu: &mut Cpu, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
+    fn run_and_collect<T: InstrEncode>(cpu: &mut Cpu, base: usize, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
+        let mut base = base;
         let result_place = CpuIndex::make_index(3, true, false);
-        cpu.regs.cur = cpu.regs.stk;
-        cpu.push(MemReg::U2(instr.encode(size as u8).0));
+        cpu.regs.cur = base as u64;
+        cpu.write_memory(MemReg::U2(instr.encode(size as u8).0), base);
+        base += MemSize::U2.len();
         for &param in params {
-            cpu.push(param);
+            cpu.write_memory(param, base);
+            base += param.len();
         }
-        cpu.push(MemReg::U2(result_place));
+        cpu.write_memory(MemReg::U2(result_place), base);
 
         cpu.write(size.pack(0), result_place);
 
@@ -478,16 +481,16 @@ mod tests {
 
         for &size in SIZES.iter() {
             for &(op, expected) in tests.iter() {
-                let indexes = push_args(&mut cpu, &[size.pack(ta), size.pack(tb)]);
+                let (indexes, base) = push_args(&mut cpu, &[size.pack(ta), size.pack(tb)]);
                 let params  = make_memrefs(&indexes);
-                let result  = run_instruction(&mut cpu, op, size, &params);
+                let result  = run_and_collect(&mut cpu, base, op, size, &params);
                 assert_eq!(result, size.pack(expected), "instruction: {:?}", op);
             }
 
             for &(op, expected) in stests.iter() {
-                let indexes = push_args(&mut cpu, &[size.pack(ta_s as u64), size.pack(tb)]);
+                let (indexes, base) = push_args(&mut cpu, &[size.pack(ta_s as u64), size.pack(tb)]);
                 let params  = make_memrefs(&indexes);
-                let result  = run_instruction(&mut cpu, op, size, &params).unpack_signed();
+                let result  = run_and_collect(&mut cpu, base, op, size, &params).unpack_signed();
                 assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
@@ -508,9 +511,9 @@ mod tests {
 
         for &size in SIZES.iter() {
             for &(op, expected) in tests.iter() {
-                let indexes = push_args(&mut cpu, &[size.pack(t as u64)]);
+                let (indexes, base) = push_args(&mut cpu, &[size.pack(t as u64)]);
                 let params  = make_memrefs(&indexes);
-                let result  = run_instruction(&mut cpu, op, size, &params).unpack_signed();
+                let result  = run_and_collect(&mut cpu, base, op, size, &params).unpack_signed();
                 assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
@@ -522,12 +525,12 @@ mod tests {
 
         let mut cpu = Cpu::new(100, 10);
 
-        let test_num = 0x5a5a5a5a;
+        let test_num = 0x5a5a5a5a5a5a5a5a;
 
         for &size in SIZES.iter() {
-            let indexes = push_args(&mut cpu, &[size.pack(test_num)]);
+            let (indexes, base) = push_args(&mut cpu, &[size.pack(test_num)]);
             let params  = make_memrefs(&indexes);
-            let result  = run_instruction(&mut cpu, Mov, size, &params);
+            let result  = run_and_collect(&mut cpu, base, Mov, size, &params);
             assert_eq!(result, size.pack(test_num), "instruction: {:?}", Mov);
         }
     }
@@ -542,15 +545,15 @@ mod tests {
         let usign_num: u8 =  12;
 
         for &size in SIZES.iter() {
-            let indexes = push_args(&mut cpu, &[size.pack(sign_num as u8 as u64)]);
+            let (indexes, base) = push_args(&mut cpu, &[size.pack(sign_num as u8 as u64)]);
             let mut params  = make_memrefs(&indexes);
             params.push(MemReg::U1(0));
-            let signed_result = run_instruction(&mut cpu, Sxi, size, &params).unpack_signed() as i8;
+            let signed_result = run_and_collect(&mut cpu, base, Sxi, size, &params).unpack_signed() as i8;
 
-            let indexes = push_args(&mut cpu, &[size.pack(usign_num as u64)]);
+            let (indexes, base) = push_args(&mut cpu, &[size.pack(usign_num as u64)]);
             let mut params  = make_memrefs(&indexes);
             params.push(MemReg::U1(0));
-            let unsign_result = run_instruction(&mut cpu, Sxu, size, &params).unpack() as u8;
+            let unsign_result = run_and_collect(&mut cpu, base, Sxu, size, &params).unpack() as u8;
 
             assert_eq!(signed_result,  sign_num);
             assert_eq!(unsign_result, usign_num);
@@ -563,7 +566,7 @@ mod tests {
         let jump_location = 10;
 
         let mut cpu = Cpu::new(100, 10);
-        run_instruction(&mut cpu, Jmp, MemSize::U2, &[MemReg::U2(CpuIndex::make_index(1, false, false)), MemReg::U2(jump_location)]);
+        run_and_collect(&mut cpu, 0, Jmp, MemSize::U2, &[MemReg::U2(CpuIndex::make_index(1, false, false)), MemReg::U2(jump_location)]);
 
         assert_eq!(cpu.regs.cur, jump_location as u64);
     }
@@ -577,10 +580,86 @@ mod tests {
 
         cpu.flags = CpuFlags::LE;
 
-        let result = run_instruction(&mut cpu, Set, MemSize::U1, &[MemReg::U1(1)]).unpack();
+        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U1(1)]).unpack();
         assert_eq!(result, 1);
 
-        let result = run_instruction(&mut cpu, Set, MemSize::U1, &[MemReg::U1(6)]).unpack();
+        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U1(6)]).unpack();
         assert_eq!(result, 0);
     }
+
+    #[test]
+    fn test_cpu_manip_tst() {
+        use instruction::CpuManip::Tst;
+        use super::CpuFlags;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        cpu.flags = CpuFlags::empty();
+
+        let (indexes, base) = push_args(&mut cpu, &[MemReg::U8(-10 as i64 as u64), MemReg::U8(10)]);
+        let params  = make_memrefs(&indexes);
+        run_and_collect(&mut cpu, base, Tst, MemSize::U8, &params);
+
+        assert_eq!(cpu.flags, CpuFlags::LS);
+    }
+
+    #[test]
+    fn test_mem_manip_stks() {
+        use instruction::MemManip::Stks;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        let (indexes, base) = push_args(&mut cpu, &[MemReg::U2(100)]);
+        let params  = make_memrefs(&indexes);
+        run_and_collect(&mut cpu, base, Stks, MemSize::U2, &params);
+
+        assert_eq!(cpu.regs.stk, 100);
+    }
+
+    #[test]
+    fn test_mem_manip_push_pop() {
+        use instruction::MemManip::{Push, Pop};
+
+        let mut cpu = Cpu::new(100, 10);
+        let test_num = 0x5a5a5a5a5a5a5a5a;
+
+        cpu.regs.stk = 50;  // dont corrupt memory when writing to the stack
+
+        for &size in SIZES.iter() {
+            let param   = size.pack(test_num);
+            let (indexes, base) = push_args(&mut cpu, &[param]);
+            let params  = make_memrefs(&indexes);
+
+            run_and_collect(&mut cpu, base, Push, size, &params);
+
+            let result = run_and_collect(&mut cpu, 0, Pop, size, &[]);
+            assert_eq!(result, param);
+        }
+    }
+
+    #[test]
+    fn test_mem_manip_call_ret() {
+        use instruction::MemManip::{Call, Ret};
+
+        let mut cpu = Cpu::new(100, 10);
+        let stack_position = 50;
+        cpu.regs.stk = stack_position;
+
+        let destination = MemReg::U2(70);
+        let (indexes, base) = push_args(&mut cpu, &[destination]);
+        let params = make_memrefs(&indexes);
+
+        run_and_collect(&mut cpu, base, Call, MemSize::U2, &params);
+
+        assert_ne!(cpu.regs.stk, stack_position);
+
+        let (indexes, base) = push_args(&mut cpu, &[MemReg::U2(0)]);
+        let params = make_memrefs(&indexes);
+
+        run_and_collect(&mut cpu, base, Ret, MemSize::U2, &params);
+
+        assert_eq!(cpu.regs.stk, stack_position);
+    }
+
+    // IO not tested because... IO
 }

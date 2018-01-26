@@ -99,7 +99,6 @@ impl Cpu {
     }
 
     pub fn write(&mut self, dat: MemReg, to: CpuIndex) {
-        println!("{}", to);
         if to.deref() {
             let to = self.read(dat.size(), to.strip_deref()).unpack();
             self.write_memory(dat, to as usize);
