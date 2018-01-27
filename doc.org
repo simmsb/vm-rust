@@ -200,6 +200,12 @@ write.
 
 Jump to a location, pushing base address, stores base pointer and sets new base
 pointer.
+Base pointer ends pointing after the saved base pointer
+#+begin_example
+[p0, p1, p2, return_address, base_pointer, v0, v1, v2]=
+                                           ^
+                                           (base pointer)
+#+end_example
 
 - jmp_pos :: Location to jump to.
 ** Ret

@@ -366,22 +366,22 @@ impl Cpu {
                         self.push(cur);  // return address
                         self.regs.cur = jmp_pos;
 
-                        let baseptr = MemReg::U8(self.regs.bas);
+                        let baseptr = MemReg::U2(self.regs.bas as u16);
                         self.push(baseptr); // save base pointer
                         self.regs.bas = self.regs.stk;
                     },
                     Ret => {
                         //  | p1 | p2 | return_address | saved_base_pointer | local ...
-                        //                    ^(2)               ^(1)
+                        //                    ^(2)               ^(1)            ^(base pointer)
                         //  Stack will look like this when Ret is called
-                        //  first make stack pointer point to the saved base pointer (1)
+                        //  first make stack pointer point to after the saved base pointer (1)
                         //  pop base pointer, stack now points to return address (2)
                         //  pop return address, then restore base pointer to the saved base pointer
                         //  decrement stack pointer by param to ret to clear locals
                         //  jump to return address
                         let param_len: u64 = self.read_next(instr.size).unpack();
                         self.regs.stk   = self.regs.bas;
-                        let baseptr     = self.pop(MemSize::U8).unpack();
+                        let baseptr     = self.pop(MemSize::U2).unpack();
                         let return_addr = self.pop(MemSize::U2).unpack();
                         self.regs.bas   = baseptr;
                         self.regs.stk  -= param_len;
@@ -645,7 +645,9 @@ mod tests {
 
         let mut cpu = Cpu::new(100, 10);
         let stack_position = 50;
+        let base_position  = 20;
         cpu.regs.stk = stack_position;
+        cpu.regs.bas = base_position;
 
         let destination = MemReg::U2(70);
         let (indexes, base) = push_args(&mut cpu, &[destination]);
@@ -654,6 +656,7 @@ mod tests {
         run_and_collect(&mut cpu, base, Call, MemSize::U2, &params);
 
         assert_ne!(cpu.regs.stk, stack_position);
+        assert_ne!(cpu.regs.bas, base_position);
 
         let (indexes, base) = push_args(&mut cpu, &[MemReg::U2(0)]);
         let params = make_memrefs(&indexes);
@@ -661,6 +664,7 @@ mod tests {
         run_and_collect(&mut cpu, base, Ret, MemSize::U2, &params);
 
         assert_eq!(cpu.regs.stk, stack_position);
+        assert_eq!(cpu.regs.bas, base_position);
     }
 
     // IO not tested because... IO
