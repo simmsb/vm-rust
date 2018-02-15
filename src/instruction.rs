@@ -372,9 +372,9 @@ impl Cpu {
                     },
                     Ret => {
                         //  | p1 | p2 | return_address | saved_base_pointer | local ...
-                        //                    ^(2)               ^(1)            ^(base pointer)
-                        //  Stack will look like this when Ret is called
-                        //  first make stack pointer point to after the saved base pointer (1)
+                        //                    ^(2)               ^(1)            ^(base pointer and stack pointer)
+                        //  Stack will look like this when Ret is called,
+                        //  with the stack and base pointer both pointing to just after the saved base pointer
                         //  pop base pointer, stack now points to return address (2)
                         //  pop return address, then restore base pointer to the saved base pointer
                         //  decrement stack pointer by param to ret to clear locals
