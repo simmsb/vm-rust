@@ -274,7 +274,7 @@ impl Cpu {
                     },
                     Sxu => {
                         let from = self.read_next(instr.size).unpack();
-                        let size = self.get_next(MemSize::U1).unpack();
+                        let size = self.get_next(MemSize::U2).unpack();
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
                         let result = match size {
                             0 => MemReg::U1(from as u8),
@@ -287,7 +287,7 @@ impl Cpu {
                     },
                     Sxi => {
                         let from = self.get_next(MemSize::U2).unpack() as u16;
-                        let size = self.get_next(MemSize::U1).unpack();
+                        let size = self.get_next(MemSize::U2).unpack();
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
 
                         let val = self.read(instr.size, from).unpack_signed();
@@ -301,14 +301,14 @@ impl Cpu {
                         self.write(result, to);
                     },
                     Jmp => {
-                        let check = self.read_next(MemSize::U1).unpack() as u8;
-                        let loc   = self.read_next(instr.size).unpack();
+                        let check = self.read_next(instr.size).unpack() as u8;
+                        let loc   = self.read_next(MemSize::U2).unpack();
                         if check != 0 {
                             self.regs.cur = loc;
                         };
                     },
                     Set => {
-                        let cond = self.get_next(MemSize::U1).unpack();
+                        let cond = self.get_next(MemSize::U2).unpack();
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
                         let check = match cond {
                             0 => true,
@@ -325,7 +325,7 @@ impl Cpu {
                             _ => panic!("invalid condition to Jmp instruction."),
                         };
 
-                        self.write(MemReg::U1(check as u8), to);
+                        self.write(instr.size.pack(check as u64), to);
                     }
                     Tst => {
                         let lhs = self.read_next(instr.size);
@@ -377,15 +377,12 @@ impl Cpu {
                         //  with the stack and base pointer both pointing to just after the saved base pointer
                         //  pop base pointer, stack now points to return address (2)
                         //  pop return address, then restore base pointer to the saved base pointer
-                        //  decrement stack pointer by param to ret to clear locals
                         //  jump to return address
-                        let param_len: u64 = self.read_next(instr.size).unpack();
-                        self.regs.stk   = self.regs.bas;
-                        let baseptr     = self.pop(MemSize::U2).unpack();
-                        let return_addr = self.pop(MemSize::U2).unpack();
-                        self.regs.bas   = baseptr;
-                        self.regs.stk  -= param_len;
-                        self.regs.cur   = return_addr;
+                        self.regs.stk   = self.regs.bas;  // stack pointer points to base pointer
+                        let baseptr     = self.pop(MemSize::U2).unpack();  // pop off saved base pointer
+                        let return_addr = self.pop(MemSize::U2).unpack();  // pop off return address
+                        self.regs.bas   = baseptr;  // restore previous base pointer
+                        self.regs.cur   = return_addr;  // jump to return address
                     },
                 };
             },
@@ -549,12 +546,12 @@ mod tests {
         for &size in SIZES.iter() {
             let (indexes, base) = push_args(&mut cpu, &[size.pack(sign_num as u8 as u64)]);
             let mut params  = make_memrefs(&indexes);
-            params.push(MemReg::U1(0));
+            params.push(MemReg::U2(0));
             let signed_result = run_and_collect(&mut cpu, base, Sxi, size, &params).unpack_signed() as i8;
 
             let (indexes, base) = push_args(&mut cpu, &[size.pack(usign_num as u64)]);
             let mut params  = make_memrefs(&indexes);
-            params.push(MemReg::U1(0));
+            params.push(MemReg::U2(0));
             let unsign_result = run_and_collect(&mut cpu, base, Sxu, size, &params).unpack() as u8;
 
             assert_eq!(signed_result,  sign_num);
@@ -582,10 +579,10 @@ mod tests {
 
         cpu.flags = CpuFlags::LE;
 
-        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U1(1)]).unpack();
+        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U2(1)]).unpack();
         assert_eq!(result, 1);
 
-        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U1(6)]).unpack();
+        let result = run_and_collect(&mut cpu, 0, Set, MemSize::U1, &[MemReg::U2(6)]).unpack();
         assert_eq!(result, 0);
     }
 
@@ -658,10 +655,7 @@ mod tests {
         assert_ne!(cpu.regs.stk, stack_position);
         assert_ne!(cpu.regs.bas, base_position);
 
-        let (indexes, base) = push_args(&mut cpu, &[MemReg::U2(0)]);
-        let params = make_memrefs(&indexes);
-
-        run_and_collect(&mut cpu, base, Ret, MemSize::U2, &params);
+        run_and_collect(&mut cpu, base, Ret, MemSize::U2, &[]);
 
         assert_eq!(cpu.regs.stk, stack_position);
         assert_eq!(cpu.regs.bas, base_position);

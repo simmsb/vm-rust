@@ -80,6 +80,7 @@ pub struct RegBlock {
     pub stk: Reg,
     pub bas: Reg,
     pub cur: Reg,
+    pub ret: Reg,
     regs: Vec<Reg>,
 }
 
@@ -89,6 +90,7 @@ impl RegBlock {
             stk: 0,
             bas: 0,
             cur: 0,
+            ret: 0,
             regs: vec![0; size],
         }
     }
@@ -102,7 +104,8 @@ impl Index<usize> for RegBlock {
             0 => &self.stk,
             1 => &self.bas,
             2 => &self.cur,
-            x => &self.regs[x - 3],
+            3 => &self.ret,
+            x => &self.regs[x - 4],
         }
     }
 }
@@ -113,7 +116,8 @@ impl IndexMut<usize> for RegBlock {
             0 => &mut self.stk,
             1 => &mut self.bas,
             2 => &mut self.cur,
-            x => &mut self.regs[x - 3],
+            3 => &mut self.ret,
+            x => &mut self.regs[x - 4],
         }
     }
 }
