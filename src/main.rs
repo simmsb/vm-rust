@@ -1,9 +1,13 @@
+#![feature(test)]
+
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate num_derive;
 extern crate byteorder;
 extern crate num;
+
+extern crate test;
 
 use std::env;
 

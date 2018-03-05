@@ -410,6 +410,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
 
     const SIZES : [MemSize; 4] = [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8];
 
@@ -493,6 +494,20 @@ mod tests {
                 assert_eq!(result, expected, "instruction: {:?}", op);
             }
         }
+    }
+
+    #[bench]
+    fn bench_binary_ops(b: &mut Bencher) {
+        use instruction::Bin::*;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        b.iter(|| {
+            let (indexes, base) = push_args(&mut cpu, &[MemReg::U8(1234), MemReg::U8(456)]);
+            let params  = make_memrefs(&indexes);
+            let result  = run_and_collect(&mut cpu, base, Add, MemSize::U8, &params);
+            assert_eq!(result, MemReg::U8(1234 + 456));
+        })
     }
 
     #[test]
