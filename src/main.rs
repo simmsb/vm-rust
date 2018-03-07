@@ -1,4 +1,5 @@
 #![feature(test)]
+#![feature(box_syntax, box_patterns)]
 
 #[macro_use]
 extern crate bitflags;

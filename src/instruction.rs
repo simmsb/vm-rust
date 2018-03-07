@@ -431,16 +431,23 @@ mod tests {
         }).collect()
     }
 
-    fn run_and_collect<T: InstrEncode>(cpu: &mut Cpu, base: usize, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
+    fn write_instruction(cpu: &mut Cpu, base: usize, instr: MemReg, params: &[MemReg]) -> usize {
         let mut base = base;
-        let result_place = CpuIndex::make_index(3, true, false);
-        cpu.regs.cur = base as u64;
-        cpu.write_memory(MemReg::U2(instr.encode(size as u8).0), base);
+        cpu.write_memory(instr, base);
         base += MemSize::U2.len();
         for &param in params {
             cpu.write_memory(param, base);
             base += param.len();
         }
+
+        return base;
+    }
+
+    fn run_and_collect<T: InstrEncode>(mut cpu: &mut Cpu, base: usize, instr: T, size: MemSize, params: &[MemReg]) -> MemReg {
+        let result_place = CpuIndex::make_index(3, true, false);
+        cpu.regs.cur = base as u64;
+        let instr = MemReg::U2(instr.encode(size as u8).0);
+        let base = write_instruction(&mut cpu, base, instr, params);
         cpu.write_memory(MemReg::U2(result_place), base);
 
         cpu.write(size.pack(0), result_place);
@@ -508,6 +515,67 @@ mod tests {
             let result  = run_and_collect(&mut cpu, base, Add, MemSize::U8, &params);
             assert_eq!(result, MemReg::U8(1234 + 456));
         })
+    }
+
+    #[bench]
+    fn bench_10000_loops(b: &mut Bencher) {
+        use ::cpu::RegBlock;
+        use ::instruction;
+
+        let mut cpu = Cpu::new(100, 10);
+
+        let iters = 10000;
+        // instruction: [size:accumulation]
+        // 0: [2:0] {counter}
+        // 1: [8:2] Sub [0] 1 [0]
+        // 2: [6:10] Test [0] 0
+        // 3: [6:16] Set 3 %0 ;; set if equal
+        // 4: [4:22] Jmp %0 2
+        // 5: [2:26] Halt
+
+        let (_indexes, base) = push_args(&mut cpu, &[MemReg::U2(iters)]);
+        let loop_point = MemReg::U2(CpuIndex::make_index(base as u16, false, false));
+
+        let mem_at_0 = MemReg::U2(CpuIndex::make_index(0, false, true));
+        let reg_at_0 = MemReg::U2(CpuIndex::make_index(RegBlock::index_general(0) as u16, true, false));
+
+        let size = MemSize::U2;
+
+        let instructions: Vec<(Box<InstrEncode>, Vec<MemReg>)> = vec![
+            (box instruction::Bin::Sub,
+                vec![mem_at_0, MemReg::U2(1), mem_at_0]),
+            (box instruction::CpuManip::Tst,
+                vec![mem_at_0, MemReg::U2(CpuIndex::make_index(0, false, false))]),
+            (box instruction::CpuManip::Set,
+                vec![MemReg::U2(3), reg_at_0]),
+            (box instruction::CpuManip::Jmp,
+                vec![reg_at_0, loop_point]),
+            (box instruction::CpuManip::Halt, vec![])
+        ];
+
+        let mut base = base;
+
+        for (instr, args) in instructions.into_iter() {
+            base = write_instruction(
+                &mut cpu,
+                base,
+                MemReg::U2(instr.encode(size as u8).0),
+                &args
+            );
+        }
+
+        println!("Written instructions, base at: {}", base);
+
+        b.iter(|| {
+
+            cpu.regs.cur = loop_point.unpack();
+
+            cpu.running = true;
+
+            cpu.exe_loop();
+
+        })
+
     }
 
     #[test]

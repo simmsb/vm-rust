@@ -94,6 +94,10 @@ impl RegBlock {
             regs: vec![0; size],
         }
     }
+
+    pub fn index_general(idx: usize) -> usize {
+        idx + 4
+    }
 }
 
 impl Index<usize> for RegBlock {
