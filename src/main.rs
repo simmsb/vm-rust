@@ -7,10 +7,12 @@ extern crate bitflags;
 extern crate num_derive;
 extern crate byteorder;
 extern crate num;
+extern crate clap;
 
 extern crate test;
 
 use std::env;
+use clap::{App, Arg, SubCommand};
 
 mod cpu;
 mod memory;
@@ -20,11 +22,71 @@ use ::cpu::Cpu;
 use ::instruction::InstrType;
 
 fn main() {
-    let mut cpu = Cpu::new(1 << 16, 8);
+    fn is_int<T: std::str::FromStr>(val: String) -> Result<(), String> {
+        if val.parse::<T>().is_ok() {
+            Ok(())
+        } else {
+            Err(String::from("Value must be an integer"))
+        }
+    }
 
-    let args: Vec<String> = env::args().collect();
+    let matches = App::new("rustvm")
+        .version("0.1.0")
+        .author("Ben Simms")
+        .about("Virtual machine for compiler")
+        .arg(Arg::with_name("input")
+             .short("i")
+             .long("input")
+             .value_name("FILE")
+             .help("Program to interpret")
+             .required(true)
+             .takes_value(true)
+             .index(1))
+        .arg(Arg::with_name("mem_size")
+             .short("m")
+             .long("mem_size")
+             .takes_value(true)
+             .validator(is_int::<usize>)
+             .default_value("16")
+             .help("Set the memory size, resultant size is 1 << mem_size"))
+        .arg(Arg::with_name("num_regs")
+             .short("n")
+             .long("num_regs")
+             .takes_value(true)
+             .validator(is_int::<usize>)
+             .default_value("10")
+             .help("Set the number of registers to use"))
+        .subcommand(SubCommand::with_name("test")
+                    .about("Enables features for testing correctness of compiler")
+                    .arg(Arg::with_name("read_index")
+                         .short("d")
+                         .long("index")
+                         .takes_value(true)
+                         .validator(is_int::<u16>)
+                         .required(true)
+                         .help("Index of memory to read from after program exits"))
+                    .arg(Arg::with_name("read_size")
+                         .short("s")
+                         .long("size")
+                         .takes_value(true)
+                         .possible_values(&["1", "2", "4", "8"])
+                         .default_value("2")
+                         .help("Size of memory to read from index"))
+                    .arg(Arg::with_name("read_value")
+                         .short("v")
+                         .long("value")
+                         .takes_value(true)
+                         .validator(is_int::<u64>)
+                         .required(true)
+                         .help("Value to compare result of read memory with")))
+        .get_matches();
 
-    let fname = &args[1];
+    let mem_size = matches.value_of("mem_size").unwrap().parse::<usize>().unwrap();
+    let num_regs = matches.value_of("num_regs").unwrap().parse::<usize>().unwrap();
+
+    let mut cpu = Cpu::new(1 << mem_size, num_regs);
+
+    let fname = matches.value_of("FILE").unwrap();
 
     cpu.load_file(fname);
     cpu.exe_loop();
