@@ -207,8 +207,6 @@ impl Cpu {
     pub fn get_instr(&mut self) -> Instruction {
         let val = InstrNum(self.get_next(MemSize::U2).unpack() as u16);
 
-        println!("loading instr: {:?}", val);
-
         Instruction {
             instr: InstrType::decode(val),
             size: MemSize::from_val(val.size()),
@@ -269,8 +267,8 @@ impl Cpu {
 
                 match x {
                     Mov => {
-                        let from = self.read_next(instr.size);
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
+                        let from = self.read_next(instr.size);
 
                         self.write(from, to);
                     },
@@ -364,7 +362,7 @@ impl Cpu {
                     },
                     Call => {
                         let jmp_pos = self.read_next(instr.size).unpack();
-                        let cur = MemReg::U2(self.regs.cur as u16 + 1);
+                        let cur = MemReg::U2(self.regs.cur as u16);
                         self.push(cur);  // return address
                         self.regs.cur = jmp_pos;
 
