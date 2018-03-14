@@ -63,15 +63,18 @@ impl Cpu {
     }
 
     pub fn exe_loop(&mut self) {
+        use instruction::Instruction;
+
+        let mut instr: Instruction;
         while self.running {
-            let instr = self.get_instr();
+            instr = self.get_instr();
             self.run_instr(instr);
         }
     }
 
     pub fn load_file(&mut self, filename: &str) {
         let mut file = File::open(filename).unwrap();
-        file.read_to_end(&mut self.mem).unwrap();
+        file.read(&mut self.mem).unwrap();
     }
 }
 

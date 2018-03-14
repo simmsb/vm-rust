@@ -1,5 +1,5 @@
-#![feature(test)]
-#![feature(box_syntax, box_patterns)]
+// #![feature(test)]
+// #![feature(box_syntax, box_patterns)]
 
 #[macro_use]
 extern crate bitflags;
@@ -9,9 +9,8 @@ extern crate byteorder;
 extern crate num;
 extern crate clap;
 
-extern crate test;
+// extern crate test;
 
-use std::env;
 use clap::{App, Arg, SubCommand};
 
 mod cpu;
@@ -86,7 +85,7 @@ fn main() {
 
     let mut cpu = Cpu::new(1 << mem_size, num_regs);
 
-    let fname = matches.value_of("FILE").unwrap();
+    let fname = matches.value_of("input").expect("error getting file parameter");
 
     cpu.load_file(fname);
     cpu.exe_loop();

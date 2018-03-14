@@ -36,6 +36,16 @@ impl MemSize {
             MemSize::U8 => MemReg::U8(val as u64),
         }
     }
+
+    pub fn from_val(val: u8) -> MemSize {
+        match val {
+            0 => MemSize::U1,
+            1 => MemSize::U2,
+            2 => MemSize::U4,
+            3 => MemSize::U8,
+            _ => panic!("failed to decode size: {}", val),
+        }
+    }
 }
 
 impl MemReg {

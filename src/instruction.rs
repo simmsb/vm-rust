@@ -207,9 +207,11 @@ impl Cpu {
     pub fn get_instr(&mut self) -> Instruction {
         let val = InstrNum(self.get_next(MemSize::U2).unpack() as u16);
 
+        println!("loading instr: {:?}", val);
+
         Instruction {
             instr: InstrType::decode(val),
-            size: FromPrimitive::from_u8(val.size()).unwrap(),
+            size: MemSize::from_val(val.size()),
         }
     }
 
@@ -281,7 +283,7 @@ impl Cpu {
                             1 => MemReg::U2(from as u16),
                             2 => MemReg::U4(from as u32),
                             3 => MemReg::U8(from as u64),
-                            _ => panic!("Invalid size to Sxu"),
+                            _ => panic!("Invalid size to Sxu: {}", size),
                         };
                         self.write(result, to);
                     },
@@ -296,7 +298,7 @@ impl Cpu {
                             1 => MemReg::U2(val as i16 as u16),
                             2 => MemReg::U4(val as i32 as u32),
                             3 => MemReg::U8(val as i64 as u64),
-                            _ => panic!("Invalid size to Sxi"),
+                            _ => panic!("Invalid size to Sxi: {}", size),
                         };
                         self.write(result, to);
                     },
@@ -410,7 +412,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test::Bencher;
+    // use test::Bencher;
 
     const SIZES : [MemSize; 4] = [MemSize::U1, MemSize::U2, MemSize::U4, MemSize::U8];
 
@@ -503,80 +505,80 @@ mod tests {
         }
     }
 
-    #[bench]
-    fn bench_binary_ops(b: &mut Bencher) {
-        use instruction::Bin::*;
+    // #[bench]
+    // fn bench_binary_ops(b: &mut Bencher) {
+    //     use instruction::Bin::*;
 
-        let mut cpu = Cpu::new(100, 10);
+    //     let mut cpu = Cpu::new(100, 10);
 
-        b.iter(|| {
-            let (indexes, base) = push_args(&mut cpu, &[MemReg::U8(1234), MemReg::U8(456)]);
-            let params  = make_memrefs(&indexes);
-            let result  = run_and_collect(&mut cpu, base, Add, MemSize::U8, &params);
-            assert_eq!(result, MemReg::U8(1234 + 456));
-        })
-    }
+    //     b.iter(|| {
+    //         let (indexes, base) = push_args(&mut cpu, &[MemReg::U8(1234), MemReg::U8(456)]);
+    //         let params  = make_memrefs(&indexes);
+    //         let result  = run_and_collect(&mut cpu, base, Add, MemSize::U8, &params);
+    //         assert_eq!(result, MemReg::U8(1234 + 456));
+    //     })
+    // }
 
-    #[bench]
-    fn bench_10000_loops(b: &mut Bencher) {
-        use ::cpu::RegBlock;
-        use ::instruction;
+    // #[bench]
+    // fn bench_10000_loops(b: &mut Bencher) {
+    //     use ::cpu::RegBlock;
+    //     use ::instruction;
 
-        let mut cpu = Cpu::new(100, 10);
+    //     let mut cpu = Cpu::new(100, 10);
 
-        let iters = 10000;
-        // instruction: [size:accumulation]
-        // 0: [2:0] {counter}
-        // 1: [8:2] Sub [0] 1 [0]
-        // 2: [6:10] Test [0] 0
-        // 3: [6:16] Set 3 %0 ;; set if equal
-        // 4: [4:22] Jmp %0 2
-        // 5: [2:26] Halt
+    //     let iters = 10000;
+    //     // instruction: [size:accumulation]
+    //     // 0: [2:0] {counter}
+    //     // 1: [8:2] Sub [0] 1 [0]
+    //     // 2: [6:10] Test [0] 0
+    //     // 3: [6:16] Set 3 %0 ;; set if equal
+    //     // 4: [4:22] Jmp %0 2
+    //     // 5: [2:26] Halt
 
-        let (_indexes, base) = push_args(&mut cpu, &[MemReg::U2(iters)]);
-        let loop_point = MemReg::U2(CpuIndex::make_index(base as u16, false, false));
+    //     let (_indexes, base) = push_args(&mut cpu, &[MemReg::U2(iters)]);
+    //     let loop_point = MemReg::U2(CpuIndex::make_index(base as u16, false, false));
 
-        let mem_at_0 = MemReg::U2(CpuIndex::make_index(0, false, true));
-        let reg_at_0 = MemReg::U2(CpuIndex::make_index(RegBlock::index_general(0) as u16, true, false));
+    //     let mem_at_0 = MemReg::U2(CpuIndex::make_index(0, false, true));
+    //     let reg_at_0 = MemReg::U2(CpuIndex::make_index(RegBlock::index_general(0) as u16, true, false));
 
-        let size = MemSize::U2;
+    //     let size = MemSize::U2;
 
-        let instructions: Vec<(Box<InstrEncode>, Vec<MemReg>)> = vec![
-            (box instruction::Bin::Sub,
-                vec![mem_at_0, MemReg::U2(1), mem_at_0]),
-            (box instruction::CpuManip::Tst,
-                vec![mem_at_0, MemReg::U2(CpuIndex::make_index(0, false, false))]),
-            (box instruction::CpuManip::Set,
-                vec![MemReg::U2(3), reg_at_0]),
-            (box instruction::CpuManip::Jmp,
-                vec![reg_at_0, loop_point]),
-            (box instruction::CpuManip::Halt, vec![])
-        ];
+    //     let instructions: Vec<(Box<InstrEncode>, Vec<MemReg>)> = vec![
+    //         (box instruction::Bin::Sub,
+    //             vec![mem_at_0, MemReg::U2(1), mem_at_0]),
+    //         (box instruction::CpuManip::Tst,
+    //             vec![mem_at_0, MemReg::U2(CpuIndex::make_index(0, false, false))]),
+    //         (box instruction::CpuManip::Set,
+    //             vec![MemReg::U2(3), reg_at_0]),
+    //         (box instruction::CpuManip::Jmp,
+    //             vec![reg_at_0, loop_point]),
+    //         (box instruction::CpuManip::Halt, vec![])
+    //     ];
 
-        let mut base = base;
+    //     let mut base = base;
 
-        for (instr, args) in instructions.into_iter() {
-            base = write_instruction(
-                &mut cpu,
-                base,
-                MemReg::U2(instr.encode(size as u8).0),
-                &args
-            );
-        }
+    //     for (instr, args) in instructions.into_iter() {
+    //         base = write_instruction(
+    //             &mut cpu,
+    //             base,
+    //             MemReg::U2(instr.encode(size as u8).0),
+    //             &args
+    //         );
+    //     }
 
-        println!("Written instructions, base at: {}", base);
+    //     println!("Written instructions, base at: {}", base);
 
-        b.iter(|| {
+    //     b.iter(|| {
 
-            cpu.regs.cur = loop_point.unpack();
+    //         cpu.regs.cur = loop_point.unpack();
 
-            cpu.running = true;
+    //         cpu.running = true;
 
-            cpu.exe_loop();
+    //         cpu.exe_loop();
 
-        })
+    //     })
 
-    }
+    // }
 
     #[test]
     fn test_unary_ops() {
