@@ -18,6 +18,7 @@ mod memory;
 mod instruction;
 
 use ::cpu::Cpu;
+use ::memory::MemSize;
 use ::instruction::InstrType;
 
 fn main() {
@@ -57,6 +58,9 @@ fn main() {
              .help("Set the number of registers to use"))
         .subcommand(SubCommand::with_name("test")
                     .about("Enables features for testing correctness of compiler")
+                    .help("When enabled the value in memory at specified location is compared
+a user provided value, if the values don't match the program will
+exit with a status code of 1.")
                     .arg(Arg::with_name("read_index")
                          .short("d")
                          .long("index")
@@ -89,6 +93,27 @@ fn main() {
 
     cpu.load_file(fname);
     cpu.exe_loop();
+
+    if let Some(matches) = matches.subcommand_matches("test") {
+        let read_index = matches.value_of("read_index").unwrap().parse::<usize>().unwrap();
+        let read_size = match matches.value_of("read_size").unwrap() {
+            "1" => MemSize::U1,
+            "2" => MemSize::U2,
+            "4" => MemSize::U4,
+            "8" => MemSize::U8,
+            _   => panic!("Not possible!"),
+        };
+        let read_value = matches.value_of("read_value").unwrap().parse::<u64>().unwrap();
+
+        let value = cpu.read_memory(read_size, read_index);
+        let comparison_value = read_size.pack(read_value);
+
+        if value != comparison_value {
+            println!("Non matching values, read {:?} expected {:?}", value, comparison_value);
+            std::process::exit(1);
+        }
+
+    }
 }
 
 
