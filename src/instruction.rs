@@ -1,6 +1,5 @@
 use std::fmt;
 use std::io::{self, Read, Write};
-use num::FromPrimitive;
 use std::num::Wrapping;
 
 #[allow(unused_imports)]
@@ -269,6 +268,10 @@ impl Cpu {
                     Mov => {
                         let to   = self.get_next(MemSize::U2).unpack() as u16;
                         let from = self.read_next(instr.size);
+
+                        // if (to as CpuIndex).deref() {
+                        //     println!("writing {:?} to {:?}", from, (to as CpuIndex).debug());
+                        // }
 
                         self.write(from, to);
                     },

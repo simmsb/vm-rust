@@ -99,6 +99,7 @@ impl Cpu {
     }
 
     pub fn write_memory(&mut self, mem: MemReg, index: usize) {
+        // println!("Writing {:?} to index: {}", mem, index);
         let range = index .. (index + mem.len());
         match mem {
             MemReg::U1(x) => self.mem[index] = x,
@@ -106,6 +107,9 @@ impl Cpu {
             MemReg::U4(x) => NativeEndian::write_u32(&mut self.mem[range], x),
             MemReg::U8(x) => NativeEndian::write_u64(&mut self.mem[range], x),
         }
+
+        // let readback = self.read_memory(mem.size(), index);
+        // println!("Wrote {:?} to {} and read back {:?}", mem, index, readback);
     }
 
     pub fn write(&mut self, dat: MemReg, to: CpuIndex) {
@@ -117,7 +121,8 @@ impl Cpu {
                 let val: Reg = dat.unpack();
                 self.regs[to.index()] = val;
             } else {
-                self.write_memory(dat, to.index());
+                panic!("Cannot write to literal!")
+                // self.write_memory(dat, to.index());
             }
         }
     }

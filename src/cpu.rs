@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::ops::{Index, IndexMut};
@@ -15,6 +16,7 @@ pub trait CpuIndexable {
     fn index(&self) -> usize;
 
     fn make_index(pos: u16, reg: bool, deref: bool) -> Self;
+    fn debug(&self) -> String;
 }
 
 impl CpuIndexable for CpuIndex {
@@ -41,7 +43,13 @@ impl CpuIndexable for CpuIndex {
     fn make_index(pos: u16, reg: bool, deref: bool) -> CpuIndex {
         pos | (reg as CpuIndex) << 15 | (deref as CpuIndex) << 14
     }
+
+    fn debug(&self) -> String {
+        format!("CpuIndexable {{ register: {}, deref: {}, index: {} }}",
+                self.register(), self.deref(), self.index())
+    }
 }
+
 
 pub struct Cpu {
     pub mem: Vec<u8>,
