@@ -57,8 +57,8 @@ fn main() {
              .default_value("10")
              .help("Set the number of registers to use"))
         .subcommand(SubCommand::with_name("test")
-                    .about("Enables features for testing correctness of compiler")
-                    .help("When enabled the value in memory at specified location is compared
+                    .about("Enables features for testing correctness of the compiler.
+When enabled the value in memory at specified location is compared
 a user provided value, if the values don't match the program will
 exit with a status code of 1.")
                     .arg(Arg::with_name("read_index")

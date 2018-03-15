@@ -118,6 +118,10 @@ impl Cpu {
                 let location = self.regs[to.index()];
                 self.write_memory(dat, location as usize);
             } else {
+                // if to.index() == 3 {
+                //     println!("Writing {:?} into ret register.", dat);
+                // }
+
                 self.regs[to.index()] = dat.unpack();
             }
         } else {
@@ -131,6 +135,10 @@ impl Cpu {
 
     pub fn read(&self, size: MemSize, index: CpuIndex) -> MemReg {
         let val = if index.register() {
+            // if index.index() == 3 {
+            //     println!("Reading {} from ret.", self.regs[index.index()]);
+            // }
+
             self.regs[index.index()] as u64
         } else {
             index.index() as u64
