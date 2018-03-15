@@ -86,6 +86,12 @@ impl Cpu {
     }
 }
 
+impl fmt::Debug for Cpu {
+   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+       write!(f, "Cpu {{ regs: {:?}, flags: {:?}, cycles: {:?}, running: {:?} }}", self.regs, self.flags, self.cycles, self.running)
+   }
+}
+
 #[derive(Debug)]
 pub struct RegBlock {
     pub stk: Reg,

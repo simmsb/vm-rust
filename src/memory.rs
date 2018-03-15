@@ -113,16 +113,18 @@ impl Cpu {
     }
 
     pub fn write(&mut self, dat: MemReg, to: CpuIndex) {
-        if to.deref() {
-            let to = self.read(dat.size(), to.strip_deref()).unpack();
-            self.write_memory(dat, to as usize);
-        } else {
-            if to.register() {
-                let val: Reg = dat.unpack();
-                self.regs[to.index()] = val;
+        if to.register() {
+            if to.deref() {
+                let location = self.regs[to.index()];
+                self.write_memory(dat, location as usize);
             } else {
-                panic!("Cannot write to literal!")
-                // self.write_memory(dat, to.index());
+                self.regs[to.index()] = dat.unpack();
+            }
+        } else {
+            if to.deref() {
+                self.write_memory(dat, to.index());
+            } else {
+                panic!("Cannot write to literal! {}, CPU: {:?}", to.debug(), self);
             }
         }
     }
