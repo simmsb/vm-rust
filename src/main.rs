@@ -12,6 +12,7 @@ extern crate clap;
 // extern crate test;
 
 use clap::{App, Arg, SubCommand};
+use std::io;
 
 mod cpu;
 mod memory;
@@ -91,7 +92,11 @@ exit with a status code of 1.")
 
     let fname = matches.value_of("input").expect("error getting file parameter");
 
-    cpu.load_file(fname);
+    if fname == "-" {
+        cpu.load_from(io::stdin())
+    } else {
+        cpu.load_file(fname);
+    }
     cpu.exe_loop();
 
     if let Some(matches) = matches.subcommand_matches("test") {

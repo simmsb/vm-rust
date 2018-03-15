@@ -84,6 +84,10 @@ impl Cpu {
         let mut file = File::open(filename).unwrap();
         file.read(&mut self.mem).unwrap();
     }
+
+    pub fn load_from<T: Read>(&mut self, mut s: T) {
+        s.read(&mut self.mem).unwrap();
+    }
 }
 
 impl fmt::Debug for Cpu {
