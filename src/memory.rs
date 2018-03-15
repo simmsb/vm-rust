@@ -99,7 +99,10 @@ impl Cpu {
     }
 
     pub fn write_memory(&mut self, mem: MemReg, index: usize) {
-        // println!("Writing {:?} to index: {}", mem, index);
+
+        if cfg!(feature = "debug_mem") {
+            println!("Writing {:?} to index: {}", mem, index);
+        }
         let range = index .. (index + mem.len());
         match mem {
             MemReg::U1(x) => self.mem[index] = x,
@@ -118,9 +121,9 @@ impl Cpu {
                 let location = self.regs[to.index()];
                 self.write_memory(dat, location as usize);
             } else {
-                // if to.index() == 3 {
-                //     println!("Writing {:?} into ret register.", dat);
-                // }
+                if cfg!(feature = "debug_mem") && to.index() == 3 {
+                    println!("Writing {:?} into ret register.", dat);
+                }
 
                 self.regs[to.index()] = dat.unpack();
             }
@@ -135,9 +138,9 @@ impl Cpu {
 
     pub fn read(&self, size: MemSize, index: CpuIndex) -> MemReg {
         let val = if index.register() {
-            // if index.index() == 3 {
-            //     println!("Reading {} from ret.", self.regs[index.index()]);
-            // }
+            if cfg!(feature = "debug_mem") && index.index() == 3{
+                println!("Reading {} from ret.", self.regs[index.index()]);
+            }
 
             self.regs[index.index()] as u64
         } else {
