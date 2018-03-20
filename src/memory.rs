@@ -2,7 +2,7 @@ use byteorder::{ByteOrder, NativeEndian};
 
 use ::cpu::{Cpu, CpuIndex, Reg, CpuIndexable};
 
-#[derive(Copy, Clone, FromPrimitive)]
+#[derive(Copy, Clone, FromPrimitive, Debug)]
 pub enum MemSize {
     U1,
     U2,
@@ -90,12 +90,18 @@ impl MemReg {
 impl Cpu {
     pub fn read_memory(&self, size: MemSize, index: usize) -> MemReg {
         let range = index .. (index + size.len());
-        match size {
+
+        let result = match size {
             MemSize::U1 => MemReg::U1(self.mem[index]),
             MemSize::U2 => MemReg::U2(NativeEndian::read_u16(&self.mem[range])),
             MemSize::U4 => MemReg::U4(NativeEndian::read_u32(&self.mem[range])),
             MemSize::U8 => MemReg::U8(NativeEndian::read_u64(&self.mem[range])),
+        };
+
+        if cfg!(feature = "debug_mem") {
+            println!("Reading {:?} from index: {}", result, index);
         }
+        result
     }
 
     pub fn write_memory(&mut self, mem: MemReg, index: usize) {

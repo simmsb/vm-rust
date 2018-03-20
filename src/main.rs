@@ -185,9 +185,9 @@ mod tests {
     fn test_write_mem() {
         let mut cpu = Cpu::new(1024, 0);
         let val = MemReg::U8(100);
-        let mem_index = CpuIndex::make_index(0, false, false);
+        let mem_index = CpuIndex::make_index(0, false, true);
 
-        cpu.write(val, mem_index.index() as u16);
+        cpu.write(val, mem_index);
         assert_eq!(cpu.read_memory(val.size(), mem_index.index()), val);
     }
 
@@ -198,22 +198,17 @@ mod tests {
 
         let val = MemReg::U8(100);
         let tests = [
-            ((false, false), (false, true)),  // write to 0, read from *0
-            ((true,  false), (true, false)),  // write to reg 0, read from reg 0
-            ((true,   true), (true,  true)),  // write to mem at reg 0, read from mem at reg 0
+            (false,  true),  // write to 0, read from 0
+            (true,  false),  // write to reg 0, read from reg 0
+            (true,   true),  // write to mem at reg 0, read from mem at reg 0
         ];
 
-        for &((r_w, d_w), (r_r, d_r)) in tests.iter() {
-            let writer = CpuIndex::make_index(0, r_w, d_w);
-            assert_eq!(writer.register(), r_w);
-            assert_eq!(writer.deref(), d_w);
-
-            let reader = CpuIndex::make_index(0, r_r, d_r);
-            assert_eq!(reader.register(), r_r);
-            assert_eq!(reader.deref(), d_r);
-
-            cpu.write(val, writer);
-            assert_eq!(cpu.read(val.size(), reader), val);
+        for &(reg, deref) in tests.iter() {
+            let location = CpuIndex::make_index(0, reg, deref);
+            assert_eq!(location.register(), reg);
+            assert_eq!(location.deref(), deref);
+            cpu.write(val, location);
+            assert_eq!(cpu.read(val.size(), location), val);
         }
     }
 }

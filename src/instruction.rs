@@ -62,9 +62,10 @@ impl InstrEncode for Bin {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Un {
+    Binv,
+    Linv,
     Neg,
     Pos,
-    Not,
 }
 
 impl InstrEncode for Un {
@@ -149,13 +150,14 @@ impl InstrType {
                 8  => Bin::And,
                 9  => Bin::Or,
                 10 => Bin::Xor,
-                _ => panic!("Invalid Binary instruction type."),
+                _ => panic!("Invalid Binary instruction type: {}.", val.id()),
             }),
             1 => Unary(match val.id() {
-                0 => Un::Neg,
-                1 => Un::Pos,
-                2 => Un::Not,
-                _ => panic!("Invalid Unary instruction type."),
+                0 => Un::Binv,
+                1 => Un::Linv,
+                2 => Un::Neg,
+                3 => Un::Pos,
+                _ => panic!("Invalid Unary instruction type: {}.", val.id()),
             }),
             2 => Manip(match val.id() {
                 0 => CpuManip::Mov,
@@ -165,7 +167,7 @@ impl InstrType {
                 4 => CpuManip::Set,
                 5 => CpuManip::Tst,
                 6 => CpuManip::Halt,
-                _ => panic!("Invalid Manipulation instruction type."),
+                _ => panic!("Invalid Manipulation instruction type: {}.", val.id()),
             }),
             3 => Mem(match val.id() {
                 0 => MemManip::Stks,
@@ -173,12 +175,12 @@ impl InstrType {
                 2 => MemManip::Pop,
                 3 => MemManip::Call,
                 4 => MemManip::Ret,
-                _ => panic!("Invalid Memory instruction type."),
+                _ => panic!("Invalid Memory instruction type: {}.", val.id()),
             }),
             4 => IO(match val.id() {
                 0 => CpuIO::Getc,
                 1 => CpuIO::Putc,
-                _ => panic!("Invalid IO instruction type."),
+                _ => panic!("Invalid IO instruction type: {}.", val.id()),
             }),
             _ => panic!("Could not decode instruction {:?}", val),
         }
@@ -253,11 +255,12 @@ impl Cpu {
                 let op_u: u64 = self.read(instr.size, op).unpack();
                 let op_s: i64 = self.read(instr.size, op).unpack_signed();
                 let to = self.get_next(MemSize::U2).unpack() as u16;
-
+                // (binv, linv, neg, pos) = range(4)
                 let result = match x {
+                    Binv => !op_u,
+                    Linv => (op_u == 0) as u64,
                     Neg => -op_s as u64,
                     Pos => op_s.abs() as u64,
-                    Not => !op_u,
                 };
                 self.write(instr.size.pack(result), to);
             },
@@ -323,10 +326,14 @@ impl Cpu {
                             6 => !self.flags.contains(CpuFlags::LE),
                             7 => !self.flags.contains(CpuFlags::LE | CpuFlags::EQ),
                             8 => !self.flags.contains(CpuFlags::EQ),
-                            9 => self.flags.contains(CpuFlags::LS),
-                            10 => self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
+                            9 => !self.flags.contains(CpuFlags::LS),
+                            10 => !self.flags.intersects(CpuFlags::LS | CpuFlags::EQ),
                             _ => panic!("invalid condition to Jmp instruction."),
                         };
+
+                        if cfg!(feature = "debug_flag") {
+                            println!("setting {:?} on condition {}, result was: {}", to, cond, check);
+                        }
 
                         self.write(instr.size.pack(check as u64), to);
                     }
@@ -336,6 +343,10 @@ impl Cpu {
 
                         let (lhs_u, rhs_u): (u64, u64) = (lhs.unpack(), rhs.unpack());
                         let (lhs_s, rhs_s): (i64, i64) = (lhs.unpack_signed(), rhs.unpack_signed());
+
+                        if cfg!(feature = "debug_flag") {
+                            println!("Testing {} with {}", lhs_u, rhs_u);
+                        }
 
                         self.flags.set(CpuFlags::EQ, lhs_u == rhs_u);
                         self.flags.set(CpuFlags::LE, lhs_u <  rhs_u);
@@ -589,9 +600,10 @@ mod tests {
         let t: i64 = -5;
 
         let tests = [
-            (Neg, -t),
-            (Pos, t.abs()),
-            (Not, !t),
+            (Binv, !t),
+            (Linv, (t == 0) as i64),
+            (Neg, -t as i64),
+            (Pos, t.abs() as i64)
         ];
 
         for &size in SIZES.iter() {
@@ -613,9 +625,21 @@ mod tests {
         let test_num = 0x5a5a5a5a5a5a5a5a;
 
         for &size in SIZES.iter() {
+            let result_place = CpuIndex::make_index(3, true, false); // ret register
+
             let (indexes, base) = push_args(&mut cpu, &[size.pack(test_num)]);
-            let params  = make_memrefs(&indexes);
-            let result  = run_and_collect(&mut cpu, base, Mov, size, &params);
+            let mut params  = make_memrefs(&indexes);
+            params.insert(0, MemReg::U2(result_place));
+
+            cpu.regs.cur = base as u64;
+
+            write_instruction(&mut cpu, base, MemReg::U2(Mov.encode(size as u8).0), &params);
+
+            let instr = cpu.get_instr();
+            cpu.run_instr(instr);
+
+            let result = cpu.read(size, result_place);
+
             assert_eq!(result, size.pack(test_num), "instruction: {:?}", Mov);
         }
     }
