@@ -98,7 +98,7 @@ impl Cpu {
             MemSize::U8 => MemReg::U8(NativeEndian::read_u64(&self.mem[range])),
         };
 
-        if cfg!(feature = "debug_mem") {
+        if cfg!(feature = "debug_mem_read") {
             println!("Reading {:?} from index: {}", result, index);
         }
         result
@@ -106,7 +106,7 @@ impl Cpu {
 
     pub fn write_memory(&mut self, mem: MemReg, index: usize) {
 
-        if cfg!(feature = "debug_mem") {
+        if cfg!(feature = "debug_mem_write") {
             println!("Writing {:?} to index: {}", mem, index);
         }
         let range = index .. (index + mem.len());
@@ -127,7 +127,7 @@ impl Cpu {
                 let location = self.regs[to.index()];
                 self.write_memory(dat, location as usize);
             } else {
-                if cfg!(feature = "debug_mem") && to.index() == 3 {
+                if cfg!(feature = "debug_mem_write") && to.index() == 3 {
                     println!("Writing {:?} into ret register.", dat);
                 }
 
@@ -144,7 +144,7 @@ impl Cpu {
 
     pub fn read(&self, size: MemSize, index: CpuIndex) -> MemReg {
         let val = if index.register() {
-            if cfg!(feature = "debug_mem") && index.index() == 3{
+            if cfg!(feature = "debug_mem_read") && index.index() == 3{
                 println!("Reading {} from ret.", self.regs[index.index()]);
             }
 

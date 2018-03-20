@@ -17,5 +17,6 @@ rpath = false
 lto = true
 
 [features]
-debug_mem = []
+debug_mem_read = []
+debug_mem_write = []
 debug_flag = []
