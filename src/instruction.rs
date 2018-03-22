@@ -51,6 +51,8 @@ pub enum Bin {
     And,
     Or,
     Xor,
+    IMod,
+    UMod,
 }
 
 impl InstrEncode for Bin {
@@ -150,6 +152,8 @@ impl InstrType {
                 8  => Bin::And,
                 9  => Bin::Or,
                 10 => Bin::Xor,
+                11 => Bin::IMod,
+                12 => Bin::UMod,
                 _ => panic!("Invalid Binary instruction type: {}.", val.id()),
             }),
             1 => Unary(match val.id() {
@@ -245,6 +249,11 @@ impl Cpu {
                     And  => lhs & rhs,
                     Or   => lhs | rhs,
                     Xor  => lhs ^ rhs,
+                    IMod => {
+                        let (lhs, rhs) = (Wrapping(left.unpack_signed()), Wrapping(right.unpack_signed()));
+                        Wrapping((lhs % rhs).0 as u64)
+                    },
+                    UMod => lhs % rhs,
                 };
                 self.write(instr.size.pack(result.0), to);
             },
@@ -491,6 +500,7 @@ mod tests {
             (And, ta & tb),
             (Or,  ta | tb),
             (Xor, ta ^ tb),
+            (UMod, ta % tb),
         ];
 
         let ta_s: i64 = -8;
@@ -498,6 +508,7 @@ mod tests {
         let stests = [
             (IDiv, ta_s /  tb as i64),
             (Sar,  ta_s >> tb),
+            (IMod, ta_s % tb as i64)
         ];
 
         for &size in SIZES.iter() {
