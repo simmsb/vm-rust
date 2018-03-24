@@ -115,6 +115,7 @@ impl InstrEncode for MemManip {
 pub enum CpuIO {
     Getc,
     Putc,
+    PutInt,
 }
 
 impl InstrEncode for CpuIO {
@@ -184,6 +185,7 @@ impl InstrType {
             4 => IO(match val.id() {
                 0 => CpuIO::Getc,
                 1 => CpuIO::Putc,
+                2 => CpuIO::PutInt,
                 _ => panic!("Invalid IO instruction type: {}.", val.id()),
             }),
             _ => panic!("Could not decode instruction {:?}", val),
@@ -422,6 +424,10 @@ impl Cpu {
                     Putc => {
                         let val = [self.read_next(instr.size).unpack() as u8];
                         io::stdout().write(&val).unwrap();
+                    },
+                    PutInt => {
+                        let val = self.read_next(instr.size).unpack();
+                        println!("{}", val);
                     }
                 }
             },

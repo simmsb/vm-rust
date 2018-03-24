@@ -20,3 +20,4 @@ lto = true
 debug_mem_read = []
 debug_mem_write = []
 debug_flag = []
+debug_push = []

@@ -162,6 +162,9 @@ impl Cpu {
 
     pub fn push(&mut self, mem: MemReg) {
         let stkpos = self.regs.stk as usize;
+        if cfg!(feature = "debug_push") {
+            println!("Pushing data: {:?} to {:?}", mem, stkpos);
+        }
         self.write_memory(mem, stkpos);
         self.regs.stk += mem.len() as u64;
     }
