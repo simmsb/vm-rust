@@ -5,6 +5,7 @@
 extern crate bitflags;
 #[macro_use]
 extern crate num_derive;
+extern crate num_traits;
 extern crate byteorder;
 extern crate num;
 extern crate clap;

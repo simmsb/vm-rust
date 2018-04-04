@@ -1,6 +1,10 @@
-use std::fmt;
-use std::io::{self, Read, Write};
-use std::num::Wrapping;
+use std::{
+    fmt,
+    io::{self, Read, Write},
+    num::Wrapping,
+    marker::Sized,
+    convert::From,
+};
 
 #[allow(unused_imports)]
 use ::cpu::{Cpu, Reg, CpuFlags, CpuIndex, CpuIndexable};
@@ -23,7 +27,15 @@ trait InstrDecode {
 }
 
 trait InstrEncode {
-    fn encode(&self, size: u8) -> InstrNum;
+    #[inline]
+    fn group_index() -> u16;
+
+    #[inline]
+    fn instr_index(&self) -> u16;
+
+    fn encode(&self, size: u8) -> InstrNum {
+        InstrNum((size as u16) << 14 | Self::group_index() << 8 | self.instr_index())
+    }
 }
 
 impl InstrDecode for InstrNum {
@@ -56,10 +68,9 @@ pub enum Bin {
 }
 
 impl InstrEncode for Bin {
-    #[allow(dead_code)]
-    fn encode(&self, size: u8) -> InstrNum {
-        return InstrNum((size as u16) << 14 | *self as u16);
-    }
+    fn group_index() -> u16 { 0 }
+
+    fn instr_index(&self) -> u16 { *self as u16 }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -71,10 +82,9 @@ pub enum Un {
 }
 
 impl InstrEncode for Un {
-    #[allow(dead_code)]
-    fn encode(&self, size: u8) -> InstrNum {
-        return InstrNum((size as u16) << 14 | 1 << 8 | *self as u16);
-    }
+    fn group_index() -> u16 { 1 }
+
+    fn instr_index(&self) -> u16 { *self as u16 }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -89,10 +99,9 @@ pub enum CpuManip {
 }
 
 impl InstrEncode for CpuManip {
-    #[allow(dead_code)]
-    fn encode(&self, size: u8) -> InstrNum {
-        return InstrNum((size as u16) << 14 | 2 << 8 | *self as u16);
-    }
+    fn group_index() -> u16 { 2 }
+
+    fn instr_index(&self) -> u16 { *self as u16 }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -105,10 +114,9 @@ pub enum MemManip {
 }
 
 impl InstrEncode for MemManip {
-    #[allow(dead_code)]
-    fn encode(&self, size: u8) -> InstrNum {
-        return InstrNum((size as u16) << 14 | 3 << 8 | *self as u16);
-    }
+    fn group_index() -> u16 { 3 }
+
+    fn instr_index(&self) -> u16 { *self as u16 }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -119,10 +127,9 @@ pub enum CpuIO {
 }
 
 impl InstrEncode for CpuIO {
-    #[allow(dead_code)]
-    fn encode(&self, size: u8) -> InstrNum {
-        return InstrNum((size as u16) << 14 | 4 << 8 | *self as u16);
-    }
+    fn group_index() -> u16 { 4 }
+
+    fn instr_index(&self) -> u16 { *self as u16 }
 }
 
 
