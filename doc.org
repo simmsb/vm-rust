@@ -2,14 +2,18 @@
 #+OPTIONS: prop:t
 
 * Instruction format
-Written as ={width}[{param}]=, for example: =2[opcode]1[flag]= means an opcode
-of width two, followed by a parameter named 'flag' with a width of one byte.
+Instructions are written here in the format ~[opcode] [operand 1] [operand 2]~, the first value is the opcode of the instruction, followed by any parameters to the instruction.
 
-Parameters can be either flags (usually one byte), read addresses, or write addresses.
+Parameters can be either flags, read addresses, or write addresses.
+
+All opcodes and operands are all 2 bytes in size.
 
 ** Opcodes
-An opcode describes the instruction to execute. And are encoded in the form:
-=2[size] 6[group] 8[index]=, although with bit widths, not byte widths.
+An opcode describes the instruction to execute. And are encoded in a bitfield format in the form:
+=2[size] 6[group] 8[index]=, where the number in front represents the width of the data in bits.
+The size field is two bits in size, it can mean any of: 1 byte, 2 bytes, 4 bytes and 8 bytes.
+The group param is the instruction group, it takes up 6 bits.
+The index param is the index of the instruction in it's group, taking up the remaining 8 bits.
 
 The size of an instruction is usually used to determine the width of the parameters it will operate on, for example: the binary =Add= instruction with a size of ~3~ will work on 8 byte operands.
 
@@ -31,7 +35,7 @@ If the dereference bit is set, the address is treated as a read address (without
 * Binary operators
 :PROPERTIES:
 :Group: 0
-:Shape: =2[opcode] 2[lhs] 2[rhs] 2[to]=
+:Shape: =[opcode] [lhs] [rhs] [to]=
 :END:
 
 - lhs :: Read, The first parameter to the binary instruction.
@@ -56,7 +60,7 @@ If the dereference bit is set, the address is treated as a read address (without
 * Unary operators
 :PROPERTIES:
 :Group: 1
-:Shape: =2[opcode] 2[op] 2[to]=
+:Shape: =[opcode] [op] [to]=
 :END:
 
  - op :: Read, Parameter to apply the unary operator on.
@@ -76,7 +80,7 @@ If the dereference bit is set, the address is treated as a read address (without
 ** Mov
 :PROPERTIES:
 :Index: 0
-:Shape: =2[opcode] 2[from] 2[to]=
+:Shape: =[opcode] [from] [to]=
 :END:
 
 Copy value from one location to another.
@@ -85,7 +89,7 @@ Copy value from one location to another.
 - to   :: Write, Location to write the value of ~from~ to.
 ** Extend
 :PROPERTIES:
-:Shape: =2[opcode] 2[from] 1[size] 2[to]=
+:Shape: =[opcode] [from] [size] [to]=
 :END:
 
 Extend one value to a different size, the size param of the opcode is the size
@@ -102,7 +106,7 @@ of the input operand.
 ** Jmp
 :PROPERTIES:
 :Index: 3
-:Shape: =2[opcode] 2[check] 2[loc]=
+:Shape: =[opcode] [check] [loc]=
 :END:
 
 Jump to a memory location
@@ -112,7 +116,7 @@ Jump to a memory location
 ** Set
 :PROPERTIES:
 :Index: 4
-:Shape: =2[opcode] 1[cond] 2[location]=
+:Shape: =[opcode] [cond] [location]=
 :END:
 
 Set a memory location based on cpu flags.
@@ -145,7 +149,7 @@ Sets to =1= if test was true, =0= if false.
 ** Tst
 :PROPERTIES:
 :Index: 5
-:Shape: =2[opcode] 2[lhs] 2[rhs]=
+:Shape: =[opcode] [lhs] [rhs]=
 :END:
 
 Set flags by comparing two operands.
@@ -155,7 +159,7 @@ Set flags by comparing two operands.
 ** Halt
 :PROPERTIES:
 :Index: 6
-:Shape: =2[opcode]=
+:Shape: =[opcode]=
 :END:
 
 Halts the cpu
@@ -166,7 +170,7 @@ Halts the cpu
 ** Stks
 :PROPERTIES:
 :Index: 0
-:Shape: =2[opcode] 2[pos]=
+:Shape: =[opcode] [pos]=
 :END:
 
 Sets the location of the stack pointer.
@@ -175,7 +179,7 @@ Sets the location of the stack pointer.
 ** Push
 :PROPERTIES:
 :Index: 1
-:Shape: =2[opcode] 2[data]=
+:Shape: =[opcode] [data]=
 :END:
 
 Push a value to the stack.
@@ -185,7 +189,7 @@ Opcode size param is size to read and push.
 ** Pop
 :PROPERTIES:
 :Index: 2
-:Shape: =2[opcode] 2[to]=
+:Shape: =[opcode] [to]=
 :END:
 
 Pop a value from the stack. Opcode size param is size to pop and
@@ -195,7 +199,7 @@ write.
 ** Call
 :PROPERTIES:
 :Index: 3
-:Shape: =2[opcode] 2[jmp_pos]=
+:Shape: =[opcode] [jmp_pos]=
 :END:
 
 Jump to a location, pushing base address, stores base pointer and sets new base
@@ -211,7 +215,7 @@ Base pointer ends pointing after the saved base pointer
 ** Ret
 :PROPERTIES:
 :Index: 4
-:Shape: =2[opcode] 2[param_len]=
+:Shape: =[opcode] [param_len]=
 :END:
 
 Reset stack and restore base pointer, pop return address and jump to it.
@@ -225,7 +229,7 @@ Reset stack and restore base pointer, pop return address and jump to it.
 ** Getc
 :PROPERTIES:
 :Index: 0
-:Shape: =2[opcode] 2[to]=
+:Shape: =[opcode] [to]=
 :END:
 
 Read a byte from stdin, writing to given location.
@@ -234,7 +238,7 @@ Read a byte from stdin, writing to given location.
 ** Putc
 :PROPERTIES:
 :Index: 1
-:Shape: =2[opcode] 2[val]=
+:Shape: =[opcode] [val]=
 :END:
 
 Write a byte to stout. If instruction size param is larger than 1 byte the value
